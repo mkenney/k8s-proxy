@@ -78,6 +78,15 @@
   version = "1.0.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/mkenney/k8s-proxy"
+  packages = [
+    "src/k8s",
+    "src/proxy"
+  ]
+  revision = "e14b79ad3d4706a759601906648ab13cd1625da7"
+
+[[projects]]
   name = "github.com/modern-go/concurrent"
   packages = ["."]
   revision = "bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94"
@@ -102,10 +111,22 @@
   version = "v2.0.1"
 
 [[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
+
+[[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
   revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/crypto"
+  packages = ["ssh/terminal"]
+  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
 
 [[projects]]
   branch = "master"
@@ -117,6 +138,15 @@
     "lex/httplex"
   ]
   revision = "b68f30494add4df6bd8ef5e82803f308e7f7c59c"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/sys"
+  packages = [
+    "unix",
+    "windows"
+  ]
+  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -279,6 +309,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f47876192f0f90f39b671febcdc8d2c040c6a9a7d9b34c30d361a35531cc2242"
+  inputs-digest = "1a9261560f8c22f3ecd62c73d5fb9e57db0f5178a2bacee656f6d03d30b3b0ae"
   solver-name = "gps-cdcl"
   solver-version = 1
