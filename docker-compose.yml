@@ -1,0 +1,16 @@
+version: '3'
+services:
+    api:
+        container_name: k8x-proxy
+        hostname: k8x-proxy
+        build:
+            context: .
+            dockerfile: ./Dockerfile
+        ports:
+            - 80
+        volumes:
+            - ./pkg:/go/src/github.com/mkenney/k8s-proxy/pkg
+        entrypoint: sh
+        command:
+            - "-cexu"
+            - "cd /go/src/github.com/mkenney/k8s-proxy/pkg && go build -buildmode=pie -o /go/bin/k8x-proxy && /go/bin/k8x-proxy"
