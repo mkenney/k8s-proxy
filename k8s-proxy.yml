@@ -44,9 +44,7 @@ spec:
                     imagePullPolicy: Never
                     ports:
                         -   containerPort: 80
-                            #name: k8s-proxy
                         -   containerPort: 443
-                            #name: k8s-proxy-ssl
                     env:
                         -   name: LOG_LEVEL
                             value: debug

@@ -62,7 +62,7 @@ func NewReverseProxy(
 	//	TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 	//}
 	//rp.proxy.Transport = &ConnectionErrorHandler{http.DefaultTransport}
-	//rp.proxy.FlushInterval = 0
+	rp.proxy.FlushInterval = 0
 
 	return rp, nil
 }

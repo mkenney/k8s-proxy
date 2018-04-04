@@ -161,8 +161,9 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	service := proxy.hostToService(r.Host)
 
 	log.Infof("new request: scheme=%s, request=%s, ip=%s, service=%s", scheme, r.Host, r.RemoteAddr, service)
-	if _, ok := proxy.ServiceMap[scheme][service]; ok {
-		proxy.ServiceMap[scheme][service].Proxy.proxy.ServeHTTP(w, r)
+	if svc, ok := proxy.ServiceMap[scheme][service]; ok {
+		log.Debugf("serving %s://%s:%d%s", scheme, service, proxy.Port, r.URL.Path)
+		svc.Proxy.proxy.ServeHTTP(w, r)
 	} else {
 		w.WriteHeader(http.StatusBadGateway)
 		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), service)))
@@ -187,12 +188,12 @@ func (proxy *Proxy) Start() chan error {
 		}
 	}()
 
-	// Add healthcheck endpoints.
+	// Add kubernetes healthcheck endpoints.
 	http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("alive"))
 	})
 	http.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("alive"))
+		w.Write([]byte("ready"))
 	})
 
 	// Add passthrough handler.

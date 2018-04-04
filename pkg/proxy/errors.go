@@ -1,5 +1,8 @@
 package proxy
 
+/*
+HTTPErrs maps HTTP error codes to error pages.
+*/
 var HTTPErrs = map[int]string{
 	502: `<!DOCTYPE html>
 <html>
@@ -16,10 +19,10 @@ var HTTPErrs = map[int]string{
 	<body>
 		<h1>502 Bad Gateway</h1>
 		<p>
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a> The requested service could not be reached<br>
+			The requested service could not be reached<br>
 		</p>
 		<p style="font-size: 0.8em">
-			No %s proxy exists for service '%s'.
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No %s proxy exists for service '%s'.
 		</p>
 	</body>
 </html>`,
