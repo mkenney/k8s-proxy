@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mkenney/k8s-proxy/src/proxy"
+	"github.com/mkenney/k8s-proxy/pkg/proxy"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,54 +16,89 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+/*
+DEFAULTSVC defines the default k8s service.
+*/
+var DEFAULTSVC string
+
+/*
+DEV assumes a dev environment if true.
+*/
+var DEV bool
+
+/*
+PORT defines the exposed k8s-proxy port.
+*/
+var PORT int
+
+/*
+SECUREPORT defines the exposed k8s-proxy SSL port.
+*/
+var SECUREPORT int
+
+/*
+TIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
+(900 seconds).
+*/
+var TIMEOUT int
+
+func init() {
+	var err error
+
+	DEFAULTSVC = os.Getenv("DEFAULTSVC")
+	if "" == DEFAULTSVC {
+		DEFAULTSVC = "kubernetes"
+	}
+
+	if "1" == os.Getenv("DEV") || "true" == os.Getenv("DEV") {
+		DEV = true
+	}
+
+	PORT, err = strconv.Atoi(os.Getenv("PORT"))
+	if nil != err || PORT > 65535 {
+		PORT = 80
+	}
+
+	SECUREPORT, err = strconv.Atoi(os.Getenv("SECUREPORT"))
+	if nil != err || SECUREPORT > 65535 {
+		SECUREPORT = 443
+	}
+
+	TIMEOUT, err = strconv.Atoi(os.Getenv("TIMEOUT"))
+	if nil != err || TIMEOUT > 900 {
+		TIMEOUT = 10
+	}
+}
+
 func main() {
 
-	proxy, err := proxy.New()
+	proxy, err := proxy.New(
+		DEFAULTSVC,
+		DEV,
+		PORT,
+		SECUREPORT,
+		TIMEOUT,
+	)
 	if nil != err {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	defaultSvc := os.Getenv("DEFAULT_SERVICE")
-	if "" != defaultSvc {
-		proxy.Default = defaultSvc
-	}
-	dev := os.Getenv("DEV")
-	if "1" == dev || "true" == dev {
-		proxy.Dev = true
-	}
-	port := os.Getenv("PORT")
-	if "" != port {
-		proxy.Port, _ = strconv.Atoi(port)
-	}
-	secure := os.Getenv("SECURE")
-	if "1" == secure || "true" == secure {
-		proxy.Secure = true
-	}
-	timeout := os.Getenv("TIMEOUT")
-	if "" != timeout {
-		proxy.Timeout, _ = strconv.Atoi(timeout)
-	}
+	errChan := proxy.Start()
 
-	log.Debugf("starting...")
-	err = proxy.Start()
-	log.Debugf("started...")
-	if nil != err {
-		panic(err)
-	}
-	log.Debugf("didn't panic...")
-	tmp, _ := json.MarshalIndent(proxy.K8s.Services.Map(), "", "    ")
+	tmp, _ := json.MarshalIndent(proxy.ServiceMap, "", "    ")
 	log.Debugf("Service Map: '%s'", string(tmp))
-	log.Debugf("sleeping...'")
-	time.Sleep(5 * time.Second)
-	tmp, _ = json.MarshalIndent(proxy.K8s.Services.Map(), "", "    ")
-	log.Debugf("Service Map: '%s'", string(tmp))
-	time.Sleep(100 * time.Second)
-	return
 
-	// Block until a signal is received.
-	c := make(chan os.Signal, 1)
-	signal.Notify(c)
-	log.Debugf("%s received, shutting down...", <-c)
+	// Shutdown when signal is received.
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c)
+		sig := <-c
+		log.Infof("'%s' signal received, shutting down proxy", sig)
+		proxy.Stop()
+		errChan <- fmt.Errorf("'%s' signal received, proxy shut down", sig)
+	}()
+
+	log.Fatal(<-errChan)
 
 	return
 

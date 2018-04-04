@@ -84,7 +84,7 @@
     "src/k8s",
     "src/proxy"
   ]
-  revision = "e14b79ad3d4706a759601906648ab13cd1625da7"
+  revision = "e048100ac7a2dbf2c29bb382780ae5352f9b6643"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"

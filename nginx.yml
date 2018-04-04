@@ -1,0 +1,71 @@
+# Service
+kind: Service
+apiVersion: v1
+metadata:
+    name: nginx
+spec:
+    selector:
+        app: nginx
+    type: LoadBalancer
+    ports:
+        -   port: 81
+            targetPort: 80
+            protocol: TCP
+            name: nginx
+---
+# Deployment
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+    name: nginx
+    labels:
+        app: nginx
+spec:
+    replicas: 3
+    strategy:
+        rollingUpdate:
+            maxSurge: 3
+            maxUnavailable: 1
+        type: RollingUpdate
+    template:
+        metadata:
+            name: nginx
+            labels:
+                app: nginx
+        spec:
+            containers:
+                -   name: nginx
+                    image: nginx
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                        -   containerPort: 80
+                            name: nginx
+                    env:
+                        -   name: LOG_LEVEL
+                            value: debug
+                    resources:
+                        limits:
+                            cpu: 2
+                            memory: 2Gi
+                        requests:
+                            cpu: 0.1
+                            memory: 128Mi
+                    livenessProbe:
+                        httpGet:
+                            path: "/"
+                            port: 80
+                            scheme: HTTP
+                        failureThreshold: 3
+                        initialDelaySeconds: 10
+                        periodSeconds: 10
+                        timeoutSeconds: 5
+                    readinessProbe:
+                        httpGet:
+                            path: "/"
+                            port: 80
+                            scheme: HTTP
+                        failureThreshold: 3
+                        initialDelaySeconds: 10
+                        periodSeconds: 10
+                        timeoutSeconds: 5
+

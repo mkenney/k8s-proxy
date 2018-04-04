@@ -50,7 +50,7 @@ func getCaller() string {
 	for {
 		if pc, file, line, ok := runtime.Caller(a + 2); ok {
 			if !strings.Contains(strings.ToLower(file), "github.com/sirupsen/logrus") {
-				caller = fmt.Sprintf("%s:%d %s", path.Base(file), line, runtime.FuncForPC(pc).Name())
+				caller = strings.Replace(fmt.Sprintf("%s:%d %s", path.Base(file), line, runtime.FuncForPC(pc).Name()), "github.com/mkenney/k8s-proxy", "", -1)
 				break
 			}
 		} else {
@@ -122,5 +122,5 @@ func (l *textFormat) Format(entry *log.Entry) ([]byte, error) {
 }
 
 var textTemplate = template.Must(
-	template.New("log").Parse(`time="{{ .Timestamp }}" level="{{ .Level }}" host="{{ .Hostname }}" caller="{{ .Caller }}" msg="{{ .Message }}"`),
+	template.New("log").Parse(`time="{{ .Timestamp }}" level="{{ .Level }}" msg="{{ .Message }}" caller="{{ .Caller }}" host="{{ .Hostname }}"`),
 )

@@ -1,13 +1,10 @@
 FROM golang:1.10
 
-#RUN apt-get -y update
-#RUN apt-get -y install curl iproute2 netbase
-
-RUN go get github.com/sirupsen/logrus \
-    && go get k8s.io/api/core/v1 \
-    && go get k8s.io/apimachinery/pkg/apis/meta/v1 \
-    && go get k8s.io/client-go/... \
-    && go get k8s.io/client-go/rest
+ENV DEFAULT_SERVICE=kubernetes \
+    DEV=true \
+    PORT=80 \
+    SECUREPORT=443 \
+    TIMEOUT=10
 
 COPY . /go/src/github.com/mkenney/k8s-proxy
 WORKDIR /go/src/github.com/mkenney/k8s-proxy/pkg
