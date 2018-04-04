@@ -162,7 +162,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof("new request: scheme=%s, request=%s, ip=%s, service=%s", scheme, r.Host, r.RemoteAddr, service)
 	if svc, ok := proxy.ServiceMap[scheme][service]; ok {
-		log.Debugf("serving %s://%s:%d%s", scheme, service, proxy.Port, r.URL.Path)
+		log.Debugf("serving %s in response to %s%s request", svc.Proxy.URL, r.Host, r.URL)
 		svc.Proxy.proxy.ServeHTTP(w, r)
 	} else {
 		w.WriteHeader(http.StatusBadGateway)

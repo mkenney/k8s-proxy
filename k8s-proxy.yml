@@ -40,8 +40,8 @@ spec:
         spec:
             containers:
                 -   name: k8s-proxy
-                    image: k8s-proxy
-                    imagePullPolicy: Never
+                    image: mkenney/k8s-proxy:latest
+                    imagePullPolicy: IfNotPresent
                     ports:
                         -   containerPort: 80
                         -   containerPort: 443
@@ -70,28 +70,21 @@ spec:
                         requests:
                             cpu: 0.1
                             memory: 128Mi
-                    #livenessProbe:
-                    #    httpGet:
-                    #        path: "/alive"
-                    #        port: 80
-                    #        scheme: HTTP
-                    #    failureThreshold: 3
-                    #    initialDelaySeconds: 10
-                    #    periodSeconds: 10
-                    #    timeoutSeconds: 5
-                    #readinessProbe:
-                    #    httpGet:
-                    #        path: "/ready"
-                    #        port: 80
-                    #        scheme: HTTP
-                    #    failureThreshold: 3
-                    #    initialDelaySeconds: 10
-                    #    periodSeconds: 10
-                    #    timeoutSeconds: 5
-                    volumeMounts:
-                        -   mountPath: /go/bin
-                            name: binpath
-            volumes:
-                -   name: binpath
-                    hostPath:
-                        path: /Users/mkenney/repos/src/github.com/mkenney/k8s-proxy/bin
+                    livenessProbe:
+                        httpGet:
+                            path: "/alive"
+                            port: 80
+                            scheme: HTTP
+                        failureThreshold: 3
+                        initialDelaySeconds: 10
+                        periodSeconds: 10
+                        timeoutSeconds: 5
+                    readinessProbe:
+                        httpGet:
+                            path: "/ready"
+                            port: 80
+                            scheme: HTTP
+                        failureThreshold: 3
+                        initialDelaySeconds: 10
+                        periodSeconds: 10
+                        timeoutSeconds: 5

@@ -79,6 +79,10 @@ type ReverseProxy struct {
 	proxy *httputil.ReverseProxy
 }
 
+func (proxy ReverseProxy) String() string {
+	return proxy.URL.String()
+}
+
 func (rp *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rp.proxy.ServeHTTP(w, r)
 }
