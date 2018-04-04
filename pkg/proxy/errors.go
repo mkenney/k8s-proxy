@@ -42,7 +42,10 @@ var HTTPErrs = map[int]string{
 	<body>
 		<h1>503 Service Unavailable</h1>
 		<p>
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a> The server is currently unavailable. Please wait a moment and try again.
+			The requested service is currently unavailable.
+		</p>
+		<p>
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>
 		</p>
 	</body>
 </html>`,
