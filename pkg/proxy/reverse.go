@@ -89,15 +89,15 @@ func (rp *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type ConnectionErrorHandler struct{ http.RoundTripper }
 
-func (c *ConnectionErrorHandler) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := c.RoundTripper.RoundTrip(req)
+func (c *ConnectionErrorHandler) RoundTrip(request *http.Request) (*http.Response, error) {
+	resp, err := c.RoundTripper.RoundTrip(request)
 	if err != nil {
 		return nil, err
 	}
 	if _, ok := err.(*net.OpError); ok {
 		r := &http.Response{
 			StatusCode: http.StatusServiceUnavailable,
-			Body:       ioutil.NopCloser(bytes.NewBufferString(HTTPErrs[503])),
+			Body:       ioutil.NopCloser(bytes.NewBufferString(fmt.Sprintf(HTTPErrs[503], request.URL.String()))),
 		}
 		return r, nil
 	}

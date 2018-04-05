@@ -81,7 +81,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 
 	for _, port := range service.Spec.Ports {
 		if "TCP" == port.Protocol && service.Name != "k8s-proxy" {
-			log.Debugf("registering service '%s:%d'", service.Name, port.Port)
+			log.Infof("registering service '%s:%d'", service.Name, port.Port)
 			rp, err := NewReverseProxy(service)
 			if nil != err {
 				return err
@@ -110,18 +110,16 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 	proxy.svcMapMux.Lock()
 	defer proxy.svcMapMux.Unlock()
 
-	log.Debugf("removing service '%s'", service.Name)
 	for _, port := range service.Spec.Ports {
 		scheme := "http"
 		if 443 == port.Port {
 			scheme = "https"
 		}
 		if _, ok := proxy.ServiceMap[scheme][service.Name]; ok {
-			return fmt.Errorf("removed service '%s'", service.Name)
+			log.Infof("removing service '%s:%d'", service.Name, port.Port)
+			delete(proxy.ServiceMap[scheme], service.Name)
 		}
 	}
-
-	delete(proxy.ServiceMap, service.Name)
 
 	return nil
 }
@@ -162,7 +160,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof("new request: scheme=%s, request=%s, ip=%s, service=%s", scheme, r.Host, r.RemoteAddr, service)
 	if svc, ok := proxy.ServiceMap[scheme][service]; ok {
-		log.Debugf("serving %s in response to %s%s request", svc.Proxy.URL, r.Host, r.URL)
+		log.Debugf("serving '%s' in response to request '%s%s'", svc.Proxy.URL, r.Host, r.URL)
 		svc.Proxy.proxy.ServeHTTP(w, r)
 	} else {
 		w.WriteHeader(http.StatusBadGateway)
@@ -180,7 +178,7 @@ func (proxy *Proxy) Start() chan error {
 	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
 
 	// Start the change watcher and the updater.
-	changes := proxy.K8s.Services.Watch()
+	changes := proxy.K8s.Services.Watch(5)
 	go func() {
 		for delta := range changes {
 			proxy.UpdateServices(delta)
@@ -209,10 +207,6 @@ func (proxy *Proxy) Start() chan error {
 		log.Infof("starting unsecured proxy on port %d", proxy.Port)
 		errs <- http.ListenAndServe(fmt.Sprintf(":%d", proxy.Port), nil)
 	}()
-	//go func() {
-	//	log.Infof("starting secured proxy on port %d", proxy.SecurePort)
-	//	errs <- http.ListenAndServe(fmt.Sprintf(":%d", proxy.SecurePort), nil)
-	//}()
 	go func() {
 		log.Infof("starting secured proxy on port %d", proxy.SecurePort)
 		errs <- http.ListenAndServeTLS(
@@ -228,7 +222,7 @@ func (proxy *Proxy) Start() chan error {
 
 /*
 Stop causes the proxy to shutdown. In a kubernetes cluster this will
-cause the service to restart.
+cause the container to be restarted.
 */
 func (proxy *Proxy) Stop() {
 	proxy.K8s.Services.Stop()

@@ -45,7 +45,7 @@ var HTTPErrs = map[int]string{
 			The requested service is currently unavailable.
 		</p>
 		<p>
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: Round-trip failed '%s'.
 		</p>
 	</body>
 </html>`,

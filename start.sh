@@ -1,14 +1,5 @@
 #!/bin/bash
-workdir=$(pwd)
 
-cd $workdir/pkg
-echo "building k8s-proxy"
-GOOS=linux go build -o ../bin/k8s-proxy
-if [ "0" != "$?" ]; then
-    exit 1
-fi
-
-cd $workdir
 kubectl delete deploy k8s-proxy
 kubectl delete service k8s-proxy
 kubectl apply -f k8s-proxy.yml
@@ -20,6 +11,5 @@ while [ ! -n "$pod" ]; do
 done
 printf "\n"
 
-k get po
-
+kubectl get po
 kubectl logs -f $pod

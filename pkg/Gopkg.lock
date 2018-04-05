@@ -78,15 +78,6 @@
   version = "1.0.1"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/mkenney/k8s-proxy"
-  packages = [
-    "src/k8s",
-    "src/proxy"
-  ]
-  revision = "e048100ac7a2dbf2c29bb382780ae5352f9b6643"
-
-[[projects]]
   name = "github.com/modern-go/concurrent"
   packages = ["."]
   revision = "bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94"
@@ -137,7 +128,7 @@
     "idna",
     "lex/httplex"
   ]
-  revision = "b68f30494add4df6bd8ef5e82803f308e7f7c59c"
+  revision = "b3c676e531a6dc479fa1b35ac961c13f5e2b4d2e"
 
 [[projects]]
   branch = "master"
@@ -146,7 +137,7 @@
     "unix",
     "windows"
   ]
-  revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
+  revision = "1d206c9fa8975fb4cf00df1dc8bf3283dc24ba0e"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -309,6 +300,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1a9261560f8c22f3ecd62c73d5fb9e57db0f5178a2bacee656f6d03d30b3b0ae"
+  inputs-digest = "881c76540d0387e0599d8bba07b803415211fa15830a26a056d043c1206c2f5a"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -1,4 +1,4 @@
-FROM golang:1.10
+FROM golang:1.10-alpine
 
 LABEL org.label-schema.schema-version = 1.0
 LABEL org.label-schema.vendor = mkenney@webbedlam.com
