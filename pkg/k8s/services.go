@@ -45,7 +45,7 @@ func (services *Services) Stop() {
 }
 
 /*
-Watch starts the serviceWatcher goroutine. frequency is the number of
+Watch starts the service watcher goroutine. frequency is the number of
 seconds to wait between API update requests. Must be greater than 0.
 Default value is 5.
 */
@@ -120,11 +120,9 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 					// Signal that the services available in the cluster
 					// have changed. Don't block longer than the
 					// scheduled delay.
-					if len(changeSet.Added) > 0 || len(changeSet.Removed) > 0 {
-						select {
-						case changeSetCh <- changeSet:
-						case <-time.After(delay - time.Now().Sub(last)):
-						}
+					select {
+					case changeSetCh <- changeSet:
+					case <-time.After(delay - time.Now().Sub(last)):
 					}
 				}
 			}
