@@ -20,8 +20,8 @@ This script will start 3 simple services.
     This service should serve all traffic on port 80 (working on 443...).
     It will route based on the domain being requested. For example,
     http://service1.somehost should route the request to the TCP port
-    exposed by `service1` (port 81), and http://service2.somehost
-    should route to `service2` on port 82.
+    exposed by \`service1\` (port 81), and http://service2.somehost
+    should route to \`service2\` on port 82.
 
 Not for production use.
 "
@@ -37,11 +37,11 @@ fi
 
 cd $workdir
 
-kubectl delete deploy  example-service1
-kubectl delete service example-service1
+kubectl delete deploy  service1
+kubectl delete service service1
 
-kubectl delete deploy  example-service2
-kubectl delete service example-service2
+kubectl delete deploy  service2
+kubectl delete service service2
 
 kubectl delete deploy  k8s-proxy
 kubectl delete service k8s-proxy
