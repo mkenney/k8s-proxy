@@ -128,7 +128,7 @@
     "idna",
     "lex/httplex"
   ]
-  revision = "b3c676e531a6dc479fa1b35ac961c13f5e2b4d2e"
+  revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
 
 [[projects]]
   branch = "master"
@@ -137,7 +137,7 @@
     "unix",
     "windows"
   ]
-  revision = "1d206c9fa8975fb4cf00df1dc8bf3283dc24ba0e"
+  revision = "3b87a42e500a6dc65dae1a55d0b641295971163e"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -205,7 +205,7 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "c4ebf33f93081f8c7602d29a59944e4a9f684ac2"
+  revision = "8759fda11383a1087cf16b1500ce5804fa9f32e7"
 
 [[projects]]
   branch = "master"
@@ -247,7 +247,7 @@
     "pkg/watch",
     "third_party/forked/golang/reflect"
   ]
-  revision = "0ed326127d3068118ef128c76673dad6005736ba"
+  revision = "5d4f0da8e5fde7cbadf8ab3ce5cfb76f86dd854e"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -300,6 +300,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "881c76540d0387e0599d8bba07b803415211fa15830a26a056d043c1206c2f5a"
+  inputs-digest = "770819c70d7cedb1e34d4a185e311b1dad8a60be001019ec13471ee32512f5c8"
   solver-name = "gps-cdcl"
   solver-version = 1
