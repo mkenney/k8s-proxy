@@ -171,11 +171,11 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Infof("new request: scheme=%s, request=%s, ip=%s, service=%s", scheme, r.Host, r.RemoteAddr, service)
 	if svc, ok := proxy.serviceMap[scheme][service]; ok {
-		log.Debugf("serving '%s' in response to request '%s%s'", svc.Proxy.URL, r.Host, r.URL)
+		log.Infof("serving '%s://%s%s' => '%s'", scheme, r.Host, r.URL, svc.Proxy.URL)
 		svc.Proxy.proxy.ServeHTTP(w, r)
 	} else {
+		log.Warnf("request for '%s://%s%s' failed, no matching service name", scheme, r.Host, r.URL)
 		w.WriteHeader(http.StatusBadGateway)
 		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), service)))
 	}
@@ -209,7 +209,6 @@ func (proxy *Proxy) Start() chan error {
 
 	// Add passthrough handler.
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Debugf("\n\nServing request....\n\n")
 		proxy.Pass(w, r)
 	})
 
