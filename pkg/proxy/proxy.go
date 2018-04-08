@@ -41,7 +41,7 @@ type Proxy struct {
 	Timeout    int
 
 	svcMapMux  sync.Mutex
-	ServiceMap ServiceMap
+	serviceMap ServiceMap
 }
 
 /*
@@ -62,7 +62,7 @@ func New(
 		Dev:        dev,
 		Port:       port,
 		SecurePort: securePort,
-		ServiceMap: ServiceMap{
+		serviceMap: ServiceMap{
 			"http":  make(map[string]*Service),
 			"https": make(map[string]*Service),
 		},
@@ -70,6 +70,10 @@ func New(
 	}
 	proxy.K8s, err = k8s.New()
 	return proxy, err
+}
+
+func (proxy *Proxy) Map() map[string]apiv1.Service {
+	return proxy.K8s.Services.Map()
 }
 
 /*
@@ -92,7 +96,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 				scheme = "https"
 			}
 
-			proxy.ServiceMap[scheme][service.Name] = &Service{
+			proxy.serviceMap[scheme][service.Name] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
@@ -115,9 +119,9 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 		if 443 == port.Port {
 			scheme = "https"
 		}
-		if _, ok := proxy.ServiceMap[scheme][service.Name]; ok {
+		if _, ok := proxy.serviceMap[scheme][service.Name]; ok {
 			log.Infof("removing service '%s:%d'", service.Name, port.Port)
-			delete(proxy.ServiceMap[scheme], service.Name)
+			delete(proxy.serviceMap[scheme], service.Name)
 		}
 	}
 
@@ -139,7 +143,7 @@ func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
 
 func (proxy *Proxy) hostToService(host string) string {
 	for _, scheme := range []string{"http", "https"} {
-		for k := range proxy.ServiceMap[scheme] {
+		for k := range proxy.serviceMap[scheme] {
 			if strings.HasPrefix(host, k+".") {
 				return k
 			}
@@ -156,10 +160,19 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	if nil != r.TLS {
 		scheme = "https"
 	}
-	service := proxy.hostToService(r.Host)
+
+	service := proxy.Default
+	for _, scheme := range []string{"http", "https"} {
+		for k := range proxy.serviceMap[scheme] {
+			if strings.HasPrefix(r.Host, k+".") {
+				service = k
+				break
+			}
+		}
+	}
 
 	log.Infof("new request: scheme=%s, request=%s, ip=%s, service=%s", scheme, r.Host, r.RemoteAddr, service)
-	if svc, ok := proxy.ServiceMap[scheme][service]; ok {
+	if svc, ok := proxy.serviceMap[scheme][service]; ok {
 		log.Debugf("serving '%s' in response to request '%s%s'", svc.Proxy.URL, r.Host, r.URL)
 		svc.Proxy.proxy.ServeHTTP(w, r)
 	} else {
@@ -196,6 +209,7 @@ func (proxy *Proxy) Start() chan error {
 
 	// Add passthrough handler.
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Debugf("\n\nServing request....\n\n")
 		proxy.Pass(w, r)
 	})
 

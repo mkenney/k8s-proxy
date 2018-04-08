@@ -122,5 +122,5 @@ func (l *textFormat) Format(entry *log.Entry) ([]byte, error) {
 }
 
 var textTemplate = template.Must(
-	template.New("log").Parse(`time="{{ .Timestamp }}" host="{{ .Hostname }}" level="{{ .Level }}" msg="{{ .Message }}" caller="{{ .Caller }}"`),
+	template.New("log").Parse(`time="{{ .Timestamp }}" host="{{ .Hostname }}" level="{{ .Level }}" caller="{{ .Caller }}" msg="{{ .Message }}"`),
 )

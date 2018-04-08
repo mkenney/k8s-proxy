@@ -85,8 +85,8 @@ func main() {
 
 	errChan := proxy.Start()
 
-	tmp, _ := json.MarshalIndent(proxy.ServiceMap, "", "    ")
-	log.Debugf("Service Map: '%s'", string(tmp))
+	//tmp, _ := json.MarshalIndent(proxy.Map(), "", "    ")
+	//log.Debugf("Service Map: '%s'", string(tmp))
 
 	// Shutdown when signal is received.
 	go func() {

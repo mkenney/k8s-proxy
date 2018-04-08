@@ -26,14 +26,14 @@ type Services struct {
 	interrupt chan bool
 
 	svcMapMux sync.Mutex
-	svcMap    map[string]apiv1.Service
+	svcMap    chan (map[string]apiv1.Service)
 }
 
 /*
 Map returns the current map of running services.
 */
 func (services *Services) Map() map[string]apiv1.Service {
-	return services.svcMap
+	return <-services.svcMap
 }
 
 /*
@@ -45,13 +45,13 @@ func (services *Services) Stop() {
 }
 
 /*
-Watch starts the serviceWatcher goroutine. updateFrequency is the number
-of seconds to wait between API update requests. Must be greater than 0.
+Watch starts the serviceWatcher goroutine. frequency is the number of
+seconds to wait between API update requests. Must be greater than 0.
 Default value is 5.
 */
-func (services *Services) Watch(updateFrequency int) chan ChangeSet {
-	if updateFrequency <= 0 {
-		updateFrequency = 5
+func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
+	if frequency <= 0 {
+		frequency = 5
 	}
 
 	services.interrupt = make(chan bool)
@@ -59,8 +59,10 @@ func (services *Services) Watch(updateFrequency int) chan ChangeSet {
 	readyCh := make(chan bool)
 
 	go func() {
-		delay := time.Duration(updateFrequency) * time.Second // Poll the API and update every `delay` period
+		delay := frequency * time.Second // Poll the API and update every `delay` period
 		last := time.Now()
+		serviceMap := make(map[string]apiv1.Service)
+
 		for {
 			select {
 			// Stop watching for changes.
@@ -69,16 +71,25 @@ func (services *Services) Watch(updateFrequency int) chan ChangeSet {
 				defer close(services.interrupt)
 				break
 
-			// Update the service data when starting or once per delay
-			// period.
 			default:
-				if 0 == len(services.svcMap) || time.Now().Sub(last) > delay {
+				// Block calls to retrieve the service map until it's
+				// ready.
+				if len(serviceMap) > 0 {
+					select {
+					case services.svcMap <- serviceMap:
+					case <-time.After(delay - time.Now().Sub(last)):
+					}
+				}
+
+				// Update the service data if the map is empty or once
+				// per `frequency` period.
+				if 0 == len(serviceMap) || time.Now().Sub(last) > delay {
 					last = time.Now()
 
 					// Fetch the service list from the k8s API
 					svcs, err := services.client.List(metav1.ListOptions{})
 					if nil != err {
-						log.Warn(err.Error())
+						log.Error(err)
 						continue
 					}
 
@@ -89,13 +100,15 @@ func (services *Services) Watch(updateFrequency int) chan ChangeSet {
 					for _, service := range svcs.Items {
 						svcMap[service.Name] = service
 					}
-					changeSet := diffServices(services.svcMap, svcMap)
+					changeSet := diffServices(serviceMap, svcMap)
+					serviceMap = svcMap
 
-					// Update the current state
-					services.svcMapMux.Lock()
-					services.svcMap = svcMap
-					services.svcMapMux.Unlock()
-					log.Infof("updated available services; %d added, %d removed", len(changeSet.Added), len(changeSet.Removed))
+					//log.Debugf(
+					//	"updated available services; %d added, %d removed, %d total",
+					//	len(changeSet.Added),
+					//	len(changeSet.Removed),
+					//	len(serviceMap),
+					//)
 
 					// Unblock the launching routine once the initial
 					// data set has been loaded.
@@ -109,12 +122,11 @@ func (services *Services) Watch(updateFrequency int) chan ChangeSet {
 					// scheduled delay.
 					if len(changeSet.Added) > 0 || len(changeSet.Removed) > 0 {
 						select {
-						case <-time.After(delay - time.Now().Sub(last)):
 						case changeSetCh <- changeSet:
+						case <-time.After(delay - time.Now().Sub(last)):
 						}
 					}
 				}
-				time.Sleep(10 * time.Millisecond)
 			}
 		}
 	}()
@@ -133,22 +145,14 @@ func diffServices(cur, new map[string]apiv1.Service) ChangeSet {
 		Added:   map[string]apiv1.Service{},
 		Removed: map[string]apiv1.Service{},
 	}
-	mc := map[string]bool{}
-	mn := map[string]bool{}
 
-	for _, v := range cur {
-		mc[v.Name] = true
-	}
-	for _, v := range new {
-		mn[v.Name] = true
-	}
 	for k, v := range cur {
-		if _, ok := mn[v.Name]; !ok {
+		if _, ok := new[v.Name]; !ok {
 			changes.Removed[k] = v
 		}
 	}
 	for k, v := range new {
-		if _, ok := mc[v.Name]; !ok {
+		if _, ok := cur[v.Name]; !ok {
 			changes.Added[k] = v
 		}
 	}
