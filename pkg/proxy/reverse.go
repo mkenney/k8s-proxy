@@ -1,11 +1,8 @@
 package proxy
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -79,27 +76,33 @@ type ReverseProxy struct {
 	proxy *httputil.ReverseProxy
 }
 
+/*
+String implements stringer. Return the URL for this proxy.
+*/
 func (proxy ReverseProxy) String() string {
 	return proxy.URL.String()
 }
 
+/*
+ServeHTTP starts the HTTP server for this proxy.
+*/
 func (rp *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rp.proxy.ServeHTTP(w, r)
 }
 
-type ConnectionErrorHandler struct{ http.RoundTripper }
-
-func (c *ConnectionErrorHandler) RoundTrip(request *http.Request) (*http.Response, error) {
-	resp, err := c.RoundTripper.RoundTrip(request)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := err.(*net.OpError); ok {
-		r := &http.Response{
-			StatusCode: http.StatusServiceUnavailable,
-			Body:       ioutil.NopCloser(bytes.NewBufferString(fmt.Sprintf(HTTPErrs[503], request.URL.String()))),
-		}
-		return r, nil
-	}
-	return resp, err
-}
+//type ConnectionErrorHandler struct{ http.RoundTripper }
+//
+//func (c *ConnectionErrorHandler) RoundTrip(request *http.Request) (*http.Response, error) {
+//	resp, err := c.RoundTripper.RoundTrip(request)
+//	if err != nil {
+//		return nil, err
+//	}
+//	if _, ok := err.(*net.OpError); ok {
+//		r := &http.Response{
+//			StatusCode: http.StatusServiceUnavailable,
+//			Body:       ioutil.NopCloser(bytes.NewBufferString(fmt.Sprintf(HTTPErrs[503], request.URL.String()))),
+//		}
+//		return r, nil
+//	}
+//	return resp, err
+//}

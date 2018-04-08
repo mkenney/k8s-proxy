@@ -72,6 +72,9 @@ func New(
 	return proxy, err
 }
 
+/*
+Map returns a map of the current kubernetes services.
+*/
 func (proxy *Proxy) Map() map[string]apiv1.Service {
 	return proxy.K8s.Services.Map()
 }
