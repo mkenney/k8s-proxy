@@ -79,8 +79,8 @@ type ReverseProxy struct {
 /*
 String implements stringer. Return the URL for this proxy.
 */
-func (proxy ReverseProxy) String() string {
-	return proxy.URL.String()
+func (rp *ReverseProxy) String() string {
+	return rp.URL.String()
 }
 
 /*
