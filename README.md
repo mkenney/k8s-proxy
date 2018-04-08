@@ -31,7 +31,7 @@
     </td>
 </tr><tr>
     <td>
-        <a href="https://godoc.org/github.com/mkenney/k8s-proxy"><img src="https://godoc.org/github.com/mkenney/k8s-proxy?status.svg" alt="GoDoc"></a>
+        <a href="https://godoc.org/github.com/mkenney/k8s-proxy/pkg"><img src="https://godoc.org/github.com/mkenney/k8s-proxy/pkg?status.svg" alt="GoDoc"></a>
     </td>
 </tr></tbody></table>
 
