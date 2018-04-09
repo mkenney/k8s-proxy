@@ -14,10 +14,7 @@ import (
 /*
 NewReverseProxy creates a new reverse proxy to forward traffic through.
 */
-func NewReverseProxy(
-	service apiv1.Service,
-) (*ReverseProxy, error) {
-
+func NewReverseProxy(service apiv1.Service) (*ReverseProxy, error) {
 	scheme := "http"
 	if 443 == service.Spec.Ports[0].Port {
 		scheme = "https"

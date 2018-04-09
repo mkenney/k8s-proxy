@@ -22,7 +22,7 @@ var HTTPErrs = map[int]string{
 			The requested service could not be reached<br>
 		</p>
 		<p style="font-size: 0.8em">
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No %s proxy exists for service '%s'.
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No %s service could be matched to host '%s'.
 		</p>
 	</body>
 </html>`,

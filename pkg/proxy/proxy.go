@@ -14,38 +14,7 @@ import (
 )
 
 /*
-ServiceMap is a map of k8s service name to proxy description.
-*/
-type ServiceMap map[string]map[string]*Service
-
-/*
-Service defines a k8s service proxy.
-*/
-type Service struct {
-	Name     string
-	Port     int32
-	Protocol string
-	Proxy    *ReverseProxy
-}
-
-/*
-Proxy holds configuration data and methods for running the kubernetes
-proxy service.
-*/
-type Proxy struct {
-	Default    string
-	Dev        bool
-	K8s        *k8s.K8S
-	Port       int
-	SecurePort int
-	Timeout    int
-
-	svcMapMux  sync.Mutex
-	serviceMap ServiceMap
-}
-
-/*
-New initializes the proxy service and  returns a pointer to the service
+New initializes the proxy service and returns a pointer to the service
 instance. If an error is generated while initializing the kubernetes
 service scanner an error will be returned.
 */
@@ -73,11 +42,35 @@ func New(
 }
 
 /*
-Map returns a map of the current kubernetes services.
+Proxy holds configuration data and methods for running the kubernetes
+proxy service.
 */
-func (proxy *Proxy) Map() map[string]apiv1.Service {
-	return proxy.K8s.Services.Map()
+type Proxy struct {
+	Default    string
+	Dev        bool
+	K8s        *k8s.K8S
+	Port       int
+	SecurePort int
+	Timeout    int
+
+	svcMapMux  sync.Mutex
+	serviceMap ServiceMap
 }
+
+/*
+Service defines a k8s service proxy.
+*/
+type Service struct {
+	Name     string
+	Port     int32
+	Protocol string
+	Proxy    *ReverseProxy
+}
+
+/*
+ServiceMap is a map of k8s service name to proxy description.
+*/
+type ServiceMap map[string]map[string]*Service
 
 /*
 AddService adds a service to the map.
@@ -111,6 +104,13 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 }
 
 /*
+Map returns a map of the current kubernetes services.
+*/
+func (proxy *Proxy) Map() map[string]apiv1.Service {
+	return proxy.K8s.Services.Map()
+}
+
+/*
 RemoveService removes a service from the map.
 */
 func (proxy *Proxy) RemoveService(service apiv1.Service) error {
@@ -129,30 +129,6 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 	}
 
 	return nil
-}
-
-/*
-UpdateServices processes changes to the set of available services in the
-cluster.
-*/
-func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
-	for _, service := range delta.Added {
-		proxy.AddService(service)
-	}
-	for _, service := range delta.Removed {
-		proxy.RemoveService(service)
-	}
-}
-
-func (proxy *Proxy) hostToService(host string) string {
-	for _, scheme := range []string{"http", "https"} {
-		for k := range proxy.serviceMap[scheme] {
-			if strings.HasPrefix(host, k+".") {
-				return k
-			}
-		}
-	}
-	return proxy.Default
 }
 
 /*
@@ -180,7 +156,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Warnf("request for '%s://%s%s' failed, no matching service name", scheme, r.Host, r.URL)
 		w.WriteHeader(http.StatusBadGateway)
-		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), service)))
+		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), r.Host)))
 	}
 }
 
@@ -242,4 +218,32 @@ cause the container to be restarted.
 */
 func (proxy *Proxy) Stop() {
 	proxy.K8s.Services.Stop()
+}
+
+/*
+UpdateServices processes changes to the set of available services in the
+cluster.
+*/
+func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
+	for _, service := range delta.Added {
+		proxy.AddService(service)
+	}
+	for _, service := range delta.Removed {
+		proxy.RemoveService(service)
+	}
+}
+
+/*
+hostToService takes in a host string (eg. service.example.com) and
+matches it to a running kubernetes service.
+*/
+func (proxy *Proxy) hostToService(host string) string {
+	for _, scheme := range []string{"http", "https"} {
+		for k := range proxy.serviceMap[scheme] {
+			if strings.HasPrefix(host, k+".") {
+				return k
+			}
+		}
+	}
+	return proxy.Default
 }

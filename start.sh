@@ -2,7 +2,7 @@
 echo "
 Starting the k8s-proxy service.
 
-The `k8s-proxy` service should serve all traffic on a specified port.
+The \`k8s-proxy\` service should serve all traffic on a specified port.
 Ports are not yet configurable via this script but can be set in
 \`k8s-proxy.yml\`. You must set both the exposed ports in the deployment
 and service as well as the PORT and SECUREPORT environment variables in
