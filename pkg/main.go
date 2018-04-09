@@ -41,6 +41,7 @@ func init() {
 
 	DEFAULTSVC = os.Getenv("DEFAULTSVC")
 	if "" == DEFAULTSVC {
+		log.Warnf("invalid DEFAULTSVC env, setting to 'kubernetes'")
 		DEFAULTSVC = "kubernetes"
 	}
 
@@ -50,16 +51,19 @@ func init() {
 
 	PORT, err = strconv.Atoi(os.Getenv("PORT"))
 	if nil != err || PORT > 65535 {
+		log.Warnf("invalid PORT env, setting to 80")
 		PORT = 80
 	}
 
 	SECUREPORT, err = strconv.Atoi(os.Getenv("SECUREPORT"))
 	if nil != err || SECUREPORT > 65535 {
+		log.Warnf("invalid SECUREPORT env, setting to 443")
 		SECUREPORT = 443
 	}
 
 	TIMEOUT, err = strconv.Atoi(os.Getenv("TIMEOUT"))
-	if nil != err || TIMEOUT > 900 {
+	if nil != err || TIMEOUT > 900 || TIMEOUT < 0 {
+		log.Warnf("invalid TIMEOUT env, setting to 10")
 		TIMEOUT = 10
 	}
 }
