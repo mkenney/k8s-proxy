@@ -21,13 +21,22 @@ kubectl delete service k8s-proxy
 kubectl apply -f k8s-proxy.yml
 
 pod=
+printf "\n"
 while [ ! -n "$pod" ]; do
     printf "."
     pod=$(kubectl get po | grep k8s-proxy | grep -i running | awk '{print $1}')
 done
 printf "\n"
 
-echo "Service started:"
+echo
+echo "Service:"
 echo "$(kubectl get service | egrep '(k8s-proxy)|(NAME)')"
 echo
+echo "Deployment:"
+echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
+echo
+echo "Pods:"
+echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
+echo
+
 kubectl logs -f $pod
