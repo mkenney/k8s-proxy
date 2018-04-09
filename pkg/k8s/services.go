@@ -110,8 +110,8 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 					//	len(serviceMap),
 					//)
 
-					// Unblock the launching routine once the initial
-					// data set has been loaded.
+					// Allow the launching routine to continue once the
+					// initial data set has been loaded.
 					if nil != readyCh {
 						readyCh <- true
 						readyCh = nil
