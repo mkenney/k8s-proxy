@@ -52,11 +52,22 @@ cat service2.yml | sed s,\$PWD,$(pwd), | kubectl create -f -
 kubectl apply -f k8s-proxy-dev.yml
 
 pod=
+printf "\n"
 while [ ! -n "$pod" ]; do
     printf "."
     pod=$(kubectl get po | grep k8s-proxy | grep -i running | awk '{print $1}')
 done
 printf "\n"
 
-kubectl get po
+echo
+echo "Service:"
+echo "$(kubectl get service | egrep '(k8s-proxy)|(NAME)')"
+echo
+echo "Deployment:"
+echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
+echo
+echo "Pods:"
+echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
+echo
+
 kubectl logs -f $pod
