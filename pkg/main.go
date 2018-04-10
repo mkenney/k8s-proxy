@@ -83,7 +83,10 @@ func main() {
 
 	errChan := proxy.Start()
 
-	// Shutdown when signal is received.
+	proxy.Wait() // Wait for the k8s services to be ready
+	log.Infof("ready to serve traffic")
+
+	// Shutdown when a signal is received.
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c)
