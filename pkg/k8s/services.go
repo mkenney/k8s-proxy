@@ -40,8 +40,7 @@ func (services *Services) Map() map[string]apiv1.Service {
 Stop ends the serviceWatcher goroutine.
 */
 func (services *Services) Stop() {
-	services.interrupt <- true
-	<-services.interrupt
+	services.interrupt <- true && <-services.interrupt
 }
 
 /*
@@ -112,7 +111,7 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 
 					// Allow the launching routine to continue once the
 					// initial data set has been loaded.
-					if nil != readyCh {
+					if nil != readyCh && len(serviceMap) > 0 {
 						readyCh <- true
 						readyCh = nil
 					}

@@ -16,15 +16,21 @@ using the internal \`kube-dns\` hostname.
 Not for production use.
 "
 
-kubectl delete deploy k8s-proxy
-kubectl delete service k8s-proxy
-kubectl apply -f k8s-proxy.yml
+echo "deleting k8s-proxy deployment and service..."
+kubectl delete deploy  k8s-proxy > /dev/null
+kubectl delete service k8s-proxy > /dev/null
+
+echo "applying k8s-proxy deployment and service..."
+kubectl apply -f k8s-proxy-dev.yml  > /dev/null
 
 pod=
 printf "\n"
-while [ ! -n "$pod" ]; do
+trycount=0
+while [ ! -n "$pod" ] && [ "50" -gt "$trycount" ]; do
+    sleep 0.5
+    pod=$(kubectl get po | grep k8s-proxy | grep -i running | grep '1/1' | awk '{print $1}')
     printf "."
-    pod=$(kubectl get po | grep k8s-proxy | grep -i running | awk '{print $1}')
+    ((trycount+=1))
 done
 printf "\n"
 
@@ -35,7 +41,7 @@ echo
 echo "Deployment:"
 echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
 echo
-echo "Pods:"
+echo "Pod:"
 echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
 

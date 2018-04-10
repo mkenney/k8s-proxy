@@ -31,11 +31,13 @@ func New(
 		Dev:        dev,
 		Port:       port,
 		SecurePort: securePort,
+		Timeout:    timeout,
+
+		readyCh: make(chan struct{}, 2),
 		serviceMap: ServiceMap{
 			"http":  make(map[string]*Service),
 			"https": make(map[string]*Service),
 		},
-		Timeout: timeout,
 	}
 	proxy.K8s, err = k8s.New()
 	return proxy, err
@@ -53,6 +55,8 @@ type Proxy struct {
 	SecurePort int
 	Timeout    int
 
+	ready      bool
+	readyCh    chan struct{}
 	svcMapMux  sync.Mutex
 	serviceMap ServiceMap
 }
@@ -76,12 +80,14 @@ type ServiceMap map[string]map[string]*Service
 AddService adds a service to the map.
 */
 func (proxy *Proxy) AddService(service apiv1.Service) error {
-	proxy.svcMapMux.Lock()
-	defer proxy.svcMapMux.Unlock()
 
 	for _, port := range service.Spec.Ports {
 		if "TCP" == port.Protocol && service.Name != "k8s-proxy" {
-			log.Infof("registering service '%s:%d'", service.Name, port.Port)
+			log.WithFields(log.Fields{
+				"name": service.Name,
+				"port": port.Port,
+			}).Info("registering service")
+
 			rp, err := NewReverseProxy(service)
 			if nil != err {
 				return err
@@ -92,12 +98,14 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 				scheme = "https"
 			}
 
+			proxy.svcMapMux.Lock()
 			proxy.serviceMap[scheme][service.Name] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
 				Proxy:    rp,
 			}
+			proxy.svcMapMux.Unlock()
 		}
 	}
 	return nil
@@ -108,27 +116,6 @@ Map returns a map of the current kubernetes services.
 */
 func (proxy *Proxy) Map() map[string]apiv1.Service {
 	return proxy.K8s.Services.Map()
-}
-
-/*
-RemoveService removes a service from the map.
-*/
-func (proxy *Proxy) RemoveService(service apiv1.Service) error {
-	proxy.svcMapMux.Lock()
-	defer proxy.svcMapMux.Unlock()
-
-	for _, port := range service.Spec.Ports {
-		scheme := "http"
-		if 443 == port.Port {
-			scheme = "https"
-		}
-		if _, ok := proxy.serviceMap[scheme][service.Name]; ok {
-			log.Infof("removing service '%s:%d'", service.Name, port.Port)
-			delete(proxy.serviceMap[scheme], service.Name)
-		}
-	}
-
-	return nil
 }
 
 /*
@@ -151,13 +138,52 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if svc, ok := proxy.serviceMap[scheme][service]; ok {
-		log.Infof("serving '%s://%s%s' => '%s'", scheme, r.Host, r.URL, svc.Proxy.URL)
-		svc.Proxy.proxy.ServeHTTP(w, r)
+		log.WithFields(log.Fields{
+			"request":  fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
+			"endpoint": svc.Proxy.URL,
+		}).Infof("serving request", scheme, r.Host, r.URL)
+
+		svc.Proxy.ServeHTTP(w, r)
 	} else {
-		log.Warnf("request for '%s://%s%s' failed, no matching service name", scheme, r.Host, r.URL)
+		log.WithFields(log.Fields{
+			"url": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
+		}).Warn("request failed, no matching service found")
+
 		w.WriteHeader(http.StatusBadGateway)
-		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), r.Host)))
+		HTTPErrs[502].Execute(w, struct {
+			Host     string
+			Scheme   string
+			Services map[string]*Service
+		}{
+			Host:     r.Host,
+			Scheme:   strings.ToUpper(scheme),
+			Services: proxy.serviceMap[scheme],
+		})
 	}
+}
+
+/*
+RemoveService removes a service from the map.
+*/
+func (proxy *Proxy) RemoveService(service apiv1.Service) error {
+	for _, port := range service.Spec.Ports {
+		scheme := "http"
+		if 443 == port.Port {
+			scheme = "https"
+		}
+		if _, ok := proxy.serviceMap[scheme][service.Name]; ok {
+			log.WithFields(log.Fields{
+				"name": service.Name,
+				"port": port.Port,
+			}).Info("removing service")
+
+			proxy.svcMapMux.Lock()
+			delete(proxy.serviceMap[scheme], service.Name)
+			proxy.svcMapMux.Unlock()
+		}
+	}
+
+	return nil
 }
 
 /*
@@ -169,8 +195,10 @@ func (proxy *Proxy) Start() chan error {
 	// Set the global timeout.
 	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
 
-	// Start the change watcher and the updater.
+	// Start the change watcher and the updater. This will block until data is available.
 	changes := proxy.K8s.Services.Watch(5)
+	proxy.readyCh <- struct{}{}
+	close(proxy.readyCh)
 	go func() {
 		for delta := range changes {
 			proxy.UpdateServices(delta)
@@ -179,11 +207,26 @@ func (proxy *Proxy) Start() chan error {
 	}()
 
 	// Add kubernetes healthcheck endpoints.
-	http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("alive"))
+	http.HandleFunc("/xalive", func(w http.ResponseWriter, r *http.Request) {
+		log.Debug("liveness probe OK")
+		w.Write([]byte("OK"))
 	})
-	http.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ready"))
+	http.HandleFunc("/xready", func(w http.ResponseWriter, r *http.Request) {
+		if proxy.ready {
+			log.Debug("readiness probe OK")
+			w.Write([]byte("OK"))
+			return
+		}
+
+		log.Error("readiness probe failed")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		HTTPErrs[503].Execute(w, struct {
+			Reason string
+			Host   string
+		}{
+			Reason: "readiness probe failed",
+			Host:   r.Host,
+		})
 	})
 
 	// Add passthrough handler.
@@ -196,11 +239,18 @@ func (proxy *Proxy) Start() chan error {
 	}).Info("starting kubernetes proxy")
 
 	go func() {
-		log.Infof("starting unsecured proxy on port %d", proxy.Port)
-		errs <- http.ListenAndServe(fmt.Sprintf(":%d", proxy.Port), nil)
+		log.WithFields(log.Fields{
+			"port": proxy.Port,
+		}).Info("starting HTTP passthrough service")
+		errs <- http.ListenAndServe(
+			fmt.Sprintf(":%d", proxy.Port),
+			nil,
+		)
 	}()
 	go func() {
-		log.Infof("starting secured proxy on port %d", proxy.SecurePort)
+		log.WithFields(log.Fields{
+			"port": proxy.SecurePort,
+		}).Infof("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
 			fmt.Sprintf(":%d", proxy.SecurePort),
 			"/go/src/github.com/mkenney/k8s-proxy/server.crt",
@@ -231,6 +281,17 @@ func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
 	for _, service := range delta.Removed {
 		proxy.RemoveService(service)
 	}
+}
+
+/*
+Wait will block until the k8s services are ready
+*/
+func (proxy *Proxy) Wait() {
+	if proxy.ready {
+		return
+	}
+	<-proxy.readyCh
+	proxy.ready = true
 }
 
 /*

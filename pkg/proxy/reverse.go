@@ -25,7 +25,7 @@ func NewReverseProxy(service apiv1.Service) (*ReverseProxy, error) {
 		port = service.Spec.Ports[0].NodePort
 	}
 
-	URL, err := url.Parse(fmt.Sprintf(
+	clusterURL, err := url.Parse(fmt.Sprintf(
 		"%s://%s.%s.svc.cluster.local:%d",
 		scheme,
 		service.Name,
@@ -37,8 +37,8 @@ func NewReverseProxy(service apiv1.Service) (*ReverseProxy, error) {
 	}
 
 	rp := &ReverseProxy{
-		URL:       URL,
-		proxy:     httputil.NewSingleHostReverseProxy(URL),
+		URL:       clusterURL,
+		proxy:     httputil.NewSingleHostReverseProxy(clusterURL),
 		Active:    true,
 		Available: time.Now(),
 		Service:   service.Name,
