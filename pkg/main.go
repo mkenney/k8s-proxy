@@ -41,7 +41,7 @@ func init() {
 
 	DEFAULTSVC = os.Getenv("DEFAULTSVC")
 	if "" == DEFAULTSVC {
-		log.Warnf("invalid DEFAULTSVC env, setting to 'kubernetes'")
+		log.Warnf("DEFAULTSVC env not set, setting to 'kubernetes'")
 		DEFAULTSVC = "kubernetes"
 	}
 
@@ -51,19 +51,19 @@ func init() {
 
 	PORT, err = strconv.Atoi(os.Getenv("PORT"))
 	if nil != err || PORT > 65535 {
-		log.Warnf("invalid PORT env, setting to 80")
+		log.Warnf("invalid PORT env '%d', setting to 80", PORT)
 		PORT = 80
 	}
 
 	SECUREPORT, err = strconv.Atoi(os.Getenv("SECUREPORT"))
 	if nil != err || SECUREPORT > 65535 {
-		log.Warnf("invalid SECUREPORT env, setting to 443")
+		log.Warnf("invalid SECUREPORT env '%d', setting to 443", SECUREPORT)
 		SECUREPORT = 443
 	}
 
 	TIMEOUT, err = strconv.Atoi(os.Getenv("TIMEOUT"))
 	if nil != err || TIMEOUT > 900 || TIMEOUT < 0 {
-		log.Warnf("invalid TIMEOUT env, setting to 10")
+		log.Warnf("invalid TIMEOUT env '%d', setting to 10", TIMEOUT)
 		TIMEOUT = 10
 	}
 }
@@ -83,7 +83,10 @@ func main() {
 
 	errChan := proxy.Start()
 
-	// Shutdown when signal is received.
+	proxy.Wait() // Wait for the k8s services to be ready
+	log.Infof("ready to serve traffic")
+
+	// Shutdown when a signal is received.
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c)

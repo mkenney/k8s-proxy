@@ -117,7 +117,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
+  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
 
 [[projects]]
   branch = "master"
@@ -205,7 +205,7 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "8759fda11383a1087cf16b1500ce5804fa9f32e7"
+  revision = "847e24b2c0e587a6a097d187ebd72e1ca24de001"
 
 [[projects]]
   branch = "master"
@@ -247,7 +247,7 @@
     "pkg/watch",
     "third_party/forked/golang/reflect"
   ]
-  revision = "5d4f0da8e5fde7cbadf8ab3ce5cfb76f86dd854e"
+  revision = "895b82eadff27f5a6b19d80628a04645823c1e46"
 
 [[projects]]
   name = "k8s.io/client-go"

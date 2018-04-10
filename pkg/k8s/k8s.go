@@ -36,8 +36,8 @@ func New() (*K8S, error) {
 	}
 	k8s.Services = &Services{
 		client:    k8s.Client.Services(""),
-		svcMap:    make(chan map[string]apiv1.Service),
 		interrupt: make(chan bool),
+		svcMap:    make(chan map[string]apiv1.Service),
 	}
 
 	return k8s, nil

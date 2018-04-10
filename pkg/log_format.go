@@ -14,11 +14,17 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"sort"
 	"strings"
 	"text/template"
 
 	log "github.com/sirupsen/logrus"
 )
+
+/*
+RFC3339Milli defines an RFC3339 date format with miliseconds
+*/
+const RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
 
 /*
 Set the formatter and the default level
@@ -39,11 +45,6 @@ func init() {
 	log.SetLevel(level)
 }
 
-/*
-RFC3339Milli defines an RFC3339 date format with miliseconds
-*/
-const RFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
-
 func getCaller() string {
 	caller := ""
 	a := 0
@@ -62,11 +63,16 @@ func getCaller() string {
 }
 
 type logData struct {
-	Timestamp string `json:"time"`
-	Level     string `json:"level"`
-	Hostname  string `json:"host"`
-	Caller    string `json:"caller"`
-	Message   string `json:"msg"`
+	Timestamp string      `json:"time"`
+	Level     string      `json:"level"`
+	Hostname  string      `json:"host"`
+	Caller    string      `json:"caller"`
+	Message   string      `json:"msg"`
+	Data      []dataField `json:"data"`
+}
+type dataField struct {
+	Key string
+	Msg string
 }
 
 type jsonFormat struct {
@@ -77,14 +83,7 @@ type jsonFormat struct {
 Format is a custom log format method
 */
 func (l *jsonFormat) Format(entry *log.Entry) ([]byte, error) {
-	data := &logData{
-		Timestamp: entry.Time.Format(RFC3339Milli),
-		Level:     entry.Level.String(),
-		Hostname:  os.Getenv("HOSTNAME"),
-		Caller:    getCaller(),
-		Message:   entry.Message,
-	}
-
+	data := getData(entry)
 	serialized, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to marshal log data as JSON: %s", err.Error())
@@ -101,7 +100,6 @@ Format is a custom log format method
 */
 func (l *textFormat) Format(entry *log.Entry) ([]byte, error) {
 	var logLine *bytes.Buffer
-	RFC3339Milli := "2006-01-02T15:04:05.000Z07:00"
 
 	if entry.Buffer != nil {
 		logLine = entry.Buffer
@@ -109,18 +107,41 @@ func (l *textFormat) Format(entry *log.Entry) ([]byte, error) {
 		logLine = &bytes.Buffer{}
 	}
 
-	data := &logData{
-		Timestamp: entry.Time.Format(RFC3339Milli),
-		Hostname:  os.Getenv("HOSTNAME"),
-		Level:     entry.Level.String(),
-		Caller:    getCaller(),
-		Message:   entry.Message,
-	}
+	data := getData(entry)
 	textTemplate.Execute(logLine, data)
 	logLine.WriteByte('\n')
 	return logLine.Bytes(), nil
 }
 
 var textTemplate = template.Must(
-	template.New("log").Parse(`time="{{ .Timestamp }}" host="{{ .Hostname }}" level="{{ .Level }}" caller="{{ .Caller }}" msg="{{ .Message }}"`),
+	template.New("log").Parse(`time="{{.Timestamp}}" host="{{.Hostname}}" level="{{.Level}}" caller="{{.Caller}}" msg="{{.Message}}" {{range $k, $v := .Data}}{{$v.Key}}="{{$v.Msg}}" {{end}}`),
 )
+
+/*
+getData is a helper function that extracts log data from the logrus
+entry.
+*/
+func getData(entry *log.Entry) *logData {
+	data := &logData{
+		Timestamp: entry.Time.Format(RFC3339Milli),
+		Level:     entry.Level.String(),
+		Hostname:  os.Getenv("HOSTNAME"),
+		Caller:    getCaller(),
+		Message:   entry.Message,
+		Data:      make([]dataField, 0),
+	}
+
+	keys := make([]string, 0)
+	for k := range entry.Data {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, v := range keys {
+		data.Data = append(data.Data, dataField{
+			Key: v,
+			Msg: fmt.Sprintf("%v", entry.Data[v]),
+		})
+	}
+
+	return data
+}
