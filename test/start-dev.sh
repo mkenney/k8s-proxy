@@ -45,6 +45,7 @@ kubectl delete service service2
 
 kubectl delete deploy  k8s-proxy
 kubectl delete service k8s-proxy
+#kubectl delete ingress k8s-proxy
 
 cat service1.yml | sed s,\$PWD,$(pwd), | kubectl create -f -
 cat service2.yml | sed s,\$PWD,$(pwd), | kubectl create -f -

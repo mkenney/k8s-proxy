@@ -31,11 +31,13 @@ func New(
 		Dev:        dev,
 		Port:       port,
 		SecurePort: securePort,
+		Timeout:    timeout,
+
+		readyCh: make(chan struct{}, 2),
 		serviceMap: ServiceMap{
 			"http":  make(map[string]*Service),
 			"https": make(map[string]*Service),
 		},
-		Timeout: timeout,
 	}
 	proxy.K8s, err = k8s.New()
 	return proxy, err
@@ -53,6 +55,8 @@ type Proxy struct {
 	SecurePort int
 	Timeout    int
 
+	ready      bool
+	readyCh    chan struct{}
 	svcMapMux  sync.Mutex
 	serviceMap ServiceMap
 }
@@ -156,7 +160,16 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Warnf("request for '%s://%s%s' failed, no matching service name", scheme, r.Host, r.URL)
 		w.WriteHeader(http.StatusBadGateway)
-		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), r.Host)))
+		HTTPErrs[502].Execute(w, struct {
+			Host     string
+			Scheme   string
+			Services map[string]*Service
+		}{
+			Host:     r.Host,
+			Scheme:   strings.ToUpper(scheme),
+			Services: proxy.serviceMap[scheme],
+		})
+		//w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), r.Host)))
 	}
 }
 
@@ -169,8 +182,10 @@ func (proxy *Proxy) Start() chan error {
 	// Set the global timeout.
 	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
 
-	// Start the change watcher and the updater.
+	// Start the change watcher and the updater. This will block until data is available.
 	changes := proxy.K8s.Services.Watch(5)
+	proxy.readyCh <- struct{}{}
+	close(proxy.readyCh)
 	go func() {
 		for delta := range changes {
 			proxy.UpdateServices(delta)
@@ -231,6 +246,17 @@ func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
 	for _, service := range delta.Removed {
 		proxy.RemoveService(service)
 	}
+}
+
+/*
+Wait will block until the k8s services are ready
+*/
+func (proxy *Proxy) Wait() {
+	if proxy.ready {
+		return
+	}
+	<-proxy.readyCh
+	proxy.ready = true
 }
 
 /*

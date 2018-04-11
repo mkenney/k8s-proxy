@@ -40,8 +40,7 @@ func (services *Services) Map() map[string]apiv1.Service {
 Stop ends the serviceWatcher goroutine.
 */
 func (services *Services) Stop() {
-	services.interrupt <- true
-	<-services.interrupt
+	services.interrupt <- true && <-services.interrupt
 }
 
 /*

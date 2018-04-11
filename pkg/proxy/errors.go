@@ -1,18 +1,36 @@
 package proxy
 
+import (
+	"html/template"
+	"log"
+)
+
 /*
 HTTPErrs maps HTTP error codes to error pages.
 */
-var HTTPErrs = map[int]string{
-	502: `<!DOCTYPE html>
+var HTTPErrs = map[int]*template.Template{}
+
+func init() {
+	var err error
+
+	check := func(err error) {
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	HTTPErrs[502], err = template.New("502").Parse(`<!DOCTYPE html>
 <html>
 	<head>
 		<title>Bad Gateway</title>
 		<style>
 			body {
 				font-family: courier;
-				margin: 5em 25%%;
+				margin: 5em 25%;
 				background-color: #f1f6f8;
+			}
+			p.sub, ul {
+				font-size: 0.8em;
 			}
 		</style>
 	</head>
@@ -21,21 +39,31 @@ var HTTPErrs = map[int]string{
 		<p>
 			The requested service could not be reached<br>
 		</p>
-		<p style="font-size: 0.8em">
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No %s service could be matched to host '%s'.
+		<p class="sub">
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No {{.Scheme}} service could be matched to host '{{.Host}}'.
+		</p>
+		<p class="sub">
+			Known services:
+			<ul>
+				{{range .Services}}<li>{{ .Name }}</li>{{end}}
+			</ul>
 		</p>
 	</body>
-</html>`,
+</html>`)
+	check(err)
 
-	503: `<!DOCTYPE html>
+	HTTPErrs[503], err = template.New("503").Parse(`<!DOCTYPE html>
 <html>
 	<head>
 		<title>Service Unavailable</title>
 		<style>
 			body {
 				font-family: courier;
-				margin: 5em 25%%;
+				margin: 5em 25%;
 				background-color: #f1f6f8;
+			}
+			p {
+
 			}
 		</style>
 	</head>
@@ -48,5 +76,6 @@ var HTTPErrs = map[int]string{
 			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: Round-trip failed '%s'.
 		</p>
 	</body>
-</html>`,
+</html>`)
+	check(err)
 }

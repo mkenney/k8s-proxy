@@ -1,8 +1,23 @@
+# Ingress
+#apiVersion: extensions/v1beta1
+#kind: Ingress
+#metadata:
+#    name: k8s-proxy
+#    labels:
+#        app: k8s-proxy
+#spec:
+#    backend:
+#        serviceName: k8s-proxy
+#        servicePort: 80
+#    ports:
+---
 # Service
 kind: Service
 apiVersion: v1
 metadata:
     name: k8s-proxy
+    labels:
+        app: k8s-proxy
 spec:
     selector:
         app: k8s-proxy
