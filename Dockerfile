@@ -8,7 +8,7 @@ ENV DEFAULT_SERVICE=kubernetes \
 
 COPY ./pkg /go/src/github.com/mkenney/k8s-proxy/pkg
 WORKDIR /go/src/github.com/mkenney/k8s-proxy/pkg
-RUN go build -o /go/bin/k8s-proxy
+RUN GOOS=linux go build -o /go/bin/k8s-proxy
 
 FROM scratch
 

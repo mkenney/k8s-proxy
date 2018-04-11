@@ -21,7 +21,7 @@ kubectl delete deploy  k8s-proxy > /dev/null
 kubectl delete service k8s-proxy > /dev/null
 
 echo "applying k8s-proxy deployment and service..."
-kubectl apply -f k8s-proxy-dev.yml  > /dev/null
+kubectl apply -f k8s-proxy.yml  > /dev/null
 
 pod=
 printf "\n"
