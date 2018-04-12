@@ -44,7 +44,7 @@ func init() {
 			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No {{.Scheme}} service could be matched to host '{{.Host}}'.
 		</p>
 		<p class="sub">
-			Known services:
+			Routable services:
 			<ul>
 				{{range .Services}}<li>{{ .Name }}</li>{{end}}
 			</ul>

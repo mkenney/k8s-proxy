@@ -193,6 +193,7 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 			delete(proxy.serviceMap[scheme], service.Name)
 			proxy.svcMapMux.Unlock()
 		}
+	}
 
 	return nil
 }
@@ -206,7 +207,8 @@ func (proxy *Proxy) Start() chan error {
 	// Set the global timeout.
 	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
 
-	// Start the change watcher and the updater. This will block until data is available.
+	// Start the change watcher and the updater. This will block until
+	// data is available.
 	changes := proxy.K8s.Services.Watch(5)
 	proxy.readyCh <- struct{}{}
 	close(proxy.readyCh)
@@ -217,20 +219,19 @@ func (proxy *Proxy) Start() chan error {
 		}
 	}()
 
-	// Kubernetes liveness probe.
+	// Kubernetes liveness probe handler.
 	http.HandleFunc("/xalive", func(w http.ResponseWriter, r *http.Request) {
 		log.Debug("liveness probe OK")
 		w.Write([]byte("OK"))
 	})
 
-	// Kubernetes readiness probe.
+	// Kubernetes readiness probe handler.
 	http.HandleFunc("/xready", func(w http.ResponseWriter, r *http.Request) {
 		if proxy.ready {
 			log.Debug("readiness probe OK")
 			w.Write([]byte("OK"))
 			return
 		}
-
 		log.Error("readiness probe failed")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		HTTPErrs[503].Execute(w, struct {
@@ -251,6 +252,7 @@ func (proxy *Proxy) Start() chan error {
 		"port": proxy.Port,
 	}).Info("starting kubernetes proxy")
 
+	// HTTP passthrough
 	go func() {
 		log.WithFields(log.Fields{
 			"port": proxy.Port,
@@ -260,6 +262,7 @@ func (proxy *Proxy) Start() chan error {
 			nil,
 		)
 	}()
+	// SSL passthrough
 	go func() {
 		log.WithFields(log.Fields{
 			"port": proxy.SecurePort,

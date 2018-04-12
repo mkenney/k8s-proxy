@@ -6,7 +6,7 @@ DEPLOYMENT=k8s-proxy
 echo "
 Starting the k8s-proxy service and test services.
 
-This script will start 3 simple services.
+This script will start 3 services.
 
 * service1, service2
     These two services are simple nginx services hosting a page that
@@ -47,6 +47,7 @@ cd $workdir/../pkg
 echo "building k8s-proxy binary"
 GOOS=linux go build -o $workdir/bin/k8s-proxy
 if [ "0" != "$?" ]; then
+    echo "  building binary failed"
     exit 1
 fi
 
