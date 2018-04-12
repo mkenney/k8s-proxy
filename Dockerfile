@@ -10,7 +10,7 @@ COPY ./pkg /go/src/github.com/mkenney/k8s-proxy/pkg
 WORKDIR /go/src/github.com/mkenney/k8s-proxy/pkg
 RUN GOOS=linux go build -o /go/bin/k8s-proxy
 
-FROM alpine
+FROM scratch
 
 LABEL org.label-schema.schema-version = 1.0
 LABEL org.label-schema.vendor = mkenney@webbedlam.com

@@ -193,7 +193,6 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 			delete(proxy.serviceMap[scheme], service.Name)
 			proxy.svcMapMux.Unlock()
 		}
-	}
 
 	return nil
 }
