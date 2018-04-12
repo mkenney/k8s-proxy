@@ -38,15 +38,15 @@ fi
 cd $workdir
 
 echo
-echo "deleting service1 deployment and service..."
+echo "removing service1 deployment and service..."
 kubectl delete deploy  service1 > /dev/null
 kubectl delete service service1 > /dev/null
 
-echo "deleting service2 deployment and service..."
+echo "removing service2 deployment and service..."
 kubectl delete deploy  service2 > /dev/null
 kubectl delete service service2 > /dev/null
 
-echo "deleting k8s-proxy deployment and service..."
+echo "removing k8s-proxy deployment and service..."
 kubectl delete deploy  k8s-proxy > /dev/null
 kubectl delete service k8s-proxy > /dev/null
 #kubectl delete ingress k8s-proxy

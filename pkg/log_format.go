@@ -50,7 +50,7 @@ func getCaller() string {
 	a := 0
 	for {
 		if pc, file, line, ok := runtime.Caller(a + 2); ok {
-			if !strings.Contains(strings.ToLower(file), "github.com/sirupsen/logrus") {
+			if !strings.Contains(strings.ToLower(file), "github.com/sirupsen/logrus") && !strings.Contains(strings.ToLower(file), "log_format.go") {
 				caller = strings.Replace(fmt.Sprintf("%s:%d %s", path.Base(file), line, runtime.FuncForPC(pc).Name()), "github.com/mkenney/k8s-proxy", "", -1)
 				break
 			}
