@@ -1,4 +1,8 @@
 #!/bin/bash
+
+IMAGE=mkenney/k8s-proxy:latest
+DEPLOYMENT=k8s-proxy
+
 echo "
 Starting the k8s-proxy service and test services.
 
@@ -28,14 +32,23 @@ Not for production use.
 
 workdir=$(pwd)
 
+cd $workdir/..
+if [ "build" = "$1" ] || [ "--build" = "$1" ] || [ "" = "$(docker images -q $IMAGE)" ]; then
+    echo "building image..."
+    docker build -t $IMAGE . &> /dev/null
+    exit_code=$?
+    if [ "0" != "$exit_code" ]; then
+        echo "  building image '$IMAGE' failed"
+        exit $exit_code
+    fi
+fi
+
 cd $workdir/../pkg
 echo "building k8s-proxy binary"
 GOOS=linux go build -o $workdir/bin/k8s-proxy
 if [ "0" != "$?" ]; then
     exit 1
 fi
-
-cd $workdir
 
 echo
 echo "removing service1 deployment and service..."
@@ -51,6 +64,7 @@ kubectl delete deploy  k8s-proxy > /dev/null
 kubectl delete service k8s-proxy > /dev/null
 #kubectl delete ingress k8s-proxy
 
+cd $workdir
 echo
 echo "applying service1 deployment and service..."
 cat service1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
@@ -64,8 +78,8 @@ kubectl apply -f k8s-proxy-dev.yml > /dev/null
 pod=
 printf "\n"
 trycount=0
-while [ ! -n "$pod" ] && [ "50" -gt "$trycount" ]; do
-    sleep 0.5
+while [ ! -n "$pod" ] && [ "60" -gt "$trycount" ]; do
+    sleep 1
     pod=$(kubectl get po | grep k8s-proxy | grep -i running | grep '1/1' | awk '{print $1}')
     printf "."
     ((trycount+=1))
