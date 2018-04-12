@@ -98,8 +98,14 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 				scheme = "https"
 			}
 
+			key := ""
+			ok := false
+			if key, ok = service.Labels["domain"]; !ok {
+				key = service.Name
+			}
+
 			proxy.svcMapMux.Lock()
-			proxy.serviceMap[scheme][service.Name] = &Service{
+			proxy.serviceMap[scheme][key] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
@@ -139,16 +145,15 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 	if svc, ok := proxy.serviceMap[scheme][service]; ok {
 		log.WithFields(log.Fields{
-			"request":  fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
 			"endpoint": svc.Proxy.URL,
-		}).Infof("serving request", scheme, r.Host, r.URL)
-
+			"request":  fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
+		}).Infof("serving request")
 		svc.Proxy.ServeHTTP(w, r)
+
 	} else {
 		log.WithFields(log.Fields{
 			"url": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
 		}).Warn("request failed, no matching service found")
-
 		w.WriteHeader(http.StatusBadGateway)
 		HTTPErrs[502].Execute(w, struct {
 			Host     string
@@ -171,7 +176,14 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 		if 443 == port.Port {
 			scheme = "https"
 		}
-		if _, ok := proxy.serviceMap[scheme][service.Name]; ok {
+
+		key := ""
+		ok := false
+		if key, ok = service.Labels["domain"]; !ok {
+			key = service.Name
+		}
+
+		if _, ok := proxy.serviceMap[scheme][key]; ok {
 			log.WithFields(log.Fields{
 				"name": service.Name,
 				"port": port.Port,
@@ -233,7 +245,6 @@ func (proxy *Proxy) Start() chan error {
 
 	// Add passthrough handler.
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Debug("root....")
 		proxy.Pass(w, r)
 	})
 
