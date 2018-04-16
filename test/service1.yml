@@ -3,6 +3,9 @@ kind: Service
 apiVersion: v1
 metadata:
     name: service1
+    labels:
+        k8s-proxy-domain: service1
+        k8s-proxy-protocol: HTTP
 spec:
     selector:
         app: service1
