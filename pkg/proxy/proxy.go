@@ -77,35 +77,39 @@ ServiceMap is a map of k8s service name to proxy description.
 type ServiceMap map[string]map[string]*Service
 
 /*
-AddService adds a service to the map.
+AddService adds a service to the passthrough map.
 */
 func (proxy *Proxy) AddService(service apiv1.Service) error {
-
+	if service.Name == "k8s-proxy" {
+		return fmt.Errorf("'k8s-proxy' cannot be a proxy target")
+	}
 	for _, port := range service.Spec.Ports {
-		if "TCP" == port.Protocol && service.Name != "k8s-proxy" {
+		if port.Port >= 80 && "TCP" == port.Protocol {
 			log.WithFields(log.Fields{
 				"name": service.Name,
 				"port": port.Port,
 			}).Info("registering service")
+
+			protocol := "http"
+			if 443 == port.Port {
+				protocol = "https"
+			}
+			if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
+				protocol = service.Labels["k8s-proxy-protocol"]
+			}
+
+			domain := service.Name
+			if _, ok := service.Labels["k8s-proxy-domain"]; ok {
+				domain = service.Labels["k8s-proxy-domain"]
+			}
 
 			rp, err := NewReverseProxy(service)
 			if nil != err {
 				return err
 			}
 
-			scheme := "http"
-			if "443" == rp.URL.Port() {
-				scheme = "https"
-			}
-
-			key := ""
-			ok := false
-			if key, ok = service.Labels["domain"]; !ok {
-				key = service.Name
-			}
-
 			proxy.svcMapMux.Lock()
-			proxy.serviceMap[scheme][key] = &Service{
+			proxy.serviceMap[protocol][domain] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
@@ -128,31 +132,29 @@ func (proxy *Proxy) Map() map[string]apiv1.Service {
 Pass passes HTTP traffic through to the requested service.
 */
 func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
-	scheme := "http"
+	protocol := "http"
 	if nil != r.TLS {
-		scheme = "https"
+		protocol = "https"
 	}
 
 	service := proxy.Default
-	for _, scheme := range []string{"http", "https"} {
-		for k := range proxy.serviceMap[scheme] {
-			if strings.HasPrefix(r.Host, k+".") {
-				service = k
-				break
-			}
+	for k := range proxy.serviceMap[protocol] {
+		if strings.HasPrefix(r.Host, k+".") {
+			service = k
+			break
 		}
 	}
 
-	if svc, ok := proxy.serviceMap[scheme][service]; ok {
+	if svc, ok := proxy.serviceMap[protocol][service]; ok {
 		log.WithFields(log.Fields{
 			"endpoint": svc.Proxy.URL,
-			"request":  fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
+			"request":  fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
 		}).Infof("serving request")
 		svc.Proxy.ServeHTTP(w, r)
 
 	} else {
 		log.WithFields(log.Fields{
-			"url": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
+			"url": fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
 		}).Warn("request failed, no matching service found")
 		w.WriteHeader(http.StatusBadGateway)
 		HTTPErrs[502].Execute(w, struct {
@@ -161,8 +163,8 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 			Services map[string]*Service
 		}{
 			Host:     r.Host,
-			Scheme:   strings.ToUpper(scheme),
-			Services: proxy.serviceMap[scheme],
+			Scheme:   strings.ToUpper(protocol),
+			Services: proxy.serviceMap[protocol],
 		})
 	}
 }
@@ -172,25 +174,26 @@ RemoveService removes a service from the map.
 */
 func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 	for _, port := range service.Spec.Ports {
-		scheme := "http"
+		protocol := "http"
 		if 443 == port.Port {
-			scheme = "https"
+			protocol = "https"
+		}
+		if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
+			protocol = service.Labels["k8s-proxy-protocol"]
 		}
 
-		key := ""
-		ok := false
-		if key, ok = service.Labels["domain"]; !ok {
-			key = service.Name
+		domain := service.Name
+		if _, ok := service.Labels["k8s-proxy-domain"]; ok {
+			domain = service.Labels["k8s-proxy-domain"]
 		}
 
-		if _, ok := proxy.serviceMap[scheme][key]; ok {
+		if _, ok := proxy.serviceMap[protocol][domain]; ok {
 			log.WithFields(log.Fields{
 				"name": service.Name,
 				"port": port.Port,
 			}).Info("removing service")
-
 			proxy.svcMapMux.Lock()
-			delete(proxy.serviceMap[scheme], service.Name)
+			delete(proxy.serviceMap[protocol], domain)
 			proxy.svcMapMux.Unlock()
 		}
 	}
@@ -220,13 +223,13 @@ func (proxy *Proxy) Start() chan error {
 	}()
 
 	// Kubernetes liveness probe handler.
-	http.HandleFunc("/xalive", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/livenessProbe", func(w http.ResponseWriter, r *http.Request) {
 		log.Debug("liveness probe OK")
 		w.Write([]byte("OK"))
 	})
 
 	// Kubernetes readiness probe handler.
-	http.HandleFunc("/xready", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/readinessProbe", func(w http.ResponseWriter, r *http.Request) {
 		if proxy.ready {
 			log.Debug("readiness probe OK")
 			w.Write([]byte("OK"))
@@ -243,7 +246,7 @@ func (proxy *Proxy) Start() chan error {
 		})
 	})
 
-	// Add passthrough handler.
+	// Use the passthrough handler for all other routes.
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		proxy.Pass(w, r)
 	})
@@ -252,7 +255,7 @@ func (proxy *Proxy) Start() chan error {
 		"port": proxy.Port,
 	}).Info("starting kubernetes proxy")
 
-	// HTTP passthrough
+	// Start the HTTP passthrough server.
 	go func() {
 		log.WithFields(log.Fields{
 			"port": proxy.Port,
@@ -262,7 +265,8 @@ func (proxy *Proxy) Start() chan error {
 			nil,
 		)
 	}()
-	// SSL passthrough
+
+	// Start the SSL passthrough server.
 	go func() {
 		log.WithFields(log.Fields{
 			"port": proxy.SecurePort,
