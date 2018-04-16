@@ -94,7 +94,7 @@ spec:
                         timeoutSeconds: 5
                     readinessProbe:
                         httpGet:
-                            path: "/x8s-alive"
+                            path: "/x8s-ready"
                             port: 80
                             scheme: HTTP
                         failureThreshold: 2

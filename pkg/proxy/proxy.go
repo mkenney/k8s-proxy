@@ -95,7 +95,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 				protocol = "https"
 			}
 			if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
-				protocol = service.Labels["k8s-proxy-protocol"]
+				protocol = strings.ToLower(service.Labels["k8s-proxy-protocol"])
 			}
 
 			domain := service.Name
@@ -109,7 +109,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 			}
 
 			proxy.svcMapMux.Lock()
-			proxy.serviceMap[strings.ToLower(protocol)][strings.ToLower(domain)] = &Service{
+			proxy.serviceMap[protocol][domain] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
@@ -224,18 +224,24 @@ func (proxy *Proxy) Start() chan error {
 
 	// Kubernetes liveness probe handler.
 	http.HandleFunc("/x8s-alive", func(w http.ResponseWriter, r *http.Request) {
-		log.Debug("liveness probe OK")
-		w.Write([]byte("OK"))
+		log.WithFields(log.Fields{
+			"url": r.URL,
+		}).Infof("liveness probe OK")
+		w.Write([]byte("200 OK"))
 	})
 
 	// Kubernetes readiness probe handler.
 	http.HandleFunc("/x8s-ready", func(w http.ResponseWriter, r *http.Request) {
 		if proxy.ready {
-			log.Debug("readiness probe OK")
+			log.WithFields(log.Fields{
+				"url": r.URL,
+			}).Infof("readiness probe OK")
 			w.Write([]byte("OK"))
 			return
 		}
-		log.Error("readiness probe failed")
+		log.WithFields(log.Fields{
+			"url": r.URL,
+		}).Error("Service Unavailable - readiness probe failed")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		HTTPErrs[503].Execute(w, struct {
 			Reason string
