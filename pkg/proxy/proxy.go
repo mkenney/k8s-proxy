@@ -109,7 +109,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 			}
 
 			proxy.svcMapMux.Lock()
-			proxy.serviceMap[protocol][domain] = &Service{
+			proxy.serviceMap[strings.ToLower(protocol)][strings.ToLower(domain)] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),

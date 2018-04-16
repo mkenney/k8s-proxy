@@ -85,7 +85,7 @@ spec:
                             memory: 128Mi
                     livenessProbe:
                         httpGet:
-                            path: "/xalive"
+                            path: "/x8s-alive"
                             port: 80
                             scheme: HTTP
                         failureThreshold: 2
@@ -94,7 +94,7 @@ spec:
                         timeoutSeconds: 5
                     readinessProbe:
                         httpGet:
-                            path: "/xready"
+                            path: "/x8s-alive"
                             port: 80
                             scheme: HTTP
                         failureThreshold: 2
