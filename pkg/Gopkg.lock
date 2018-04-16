@@ -81,7 +81,7 @@
   branch = "master"
   name = "github.com/mkenney/go-log-fmt"
   packages = ["."]
-  revision = "b3a97b78d48ce646f5573151930e4856c976e7a9"
+  revision = "5a5ddf516abe65431960830c0abcd60c41b2c348"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
@@ -129,12 +129,13 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = [
+    "http/httpguts",
     "http2",
     "http2/hpack",
     "idna",
     "lex/httplex"
   ]
-  revision = "500e7a4f953ddaf55d316b4d3adc516aa0379622"
+  revision = "a35a21de978d84ffc92f010a153705b170b2f9d1"
 
 [[projects]]
   branch = "master"
@@ -143,7 +144,7 @@
     "unix",
     "windows"
   ]
-  revision = "2281fa97ef7b0c26324634d5a22f04babdac8713"
+  revision = "ecfd8b563e1320e7282dccf28ad48ec2c68aaebf"
 
 [[projects]]
   name = "golang.org/x/text"
