@@ -3,6 +3,9 @@ kind: Service
 apiVersion: v1
 metadata:
     name: service1
+    labels:
+        k8s-proxy-domain: service1
+        k8s-proxy-protocol: HTTP
 spec:
     selector:
         app: service1
@@ -21,10 +24,10 @@ metadata:
     labels:
         app: service1
 spec:
-    replicas: 3
+    replicas: 1
     strategy:
         rollingUpdate:
-            maxSurge: 3
+            maxSurge: 2
             maxUnavailable: 1
         type: RollingUpdate
     template:

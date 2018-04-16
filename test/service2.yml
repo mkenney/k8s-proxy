@@ -8,7 +8,7 @@ spec:
         app: service2
     type: LoadBalancer
     ports:
-        -   port: 82
+        -   port: 81
             targetPort: 80
             protocol: TCP
             name: http
@@ -21,10 +21,10 @@ metadata:
     labels:
         app: service2
 spec:
-    replicas: 3
+    replicas: 1
     strategy:
         rollingUpdate:
-            maxSurge: 3
+            maxSurge: 2
             maxUnavailable: 1
         type: RollingUpdate
     template:

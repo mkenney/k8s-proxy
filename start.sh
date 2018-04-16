@@ -1,4 +1,8 @@
 #!/bin/bash
+
+IMAGE=mkenney/k8s-proxy:latest
+DEPLOYMENT=k8s-proxy
+
 echo "
 Starting the k8s-proxy service.
 
@@ -16,15 +20,31 @@ using the internal \`kube-dns\` hostname.
 Not for production use.
 "
 
-kubectl delete deploy k8s-proxy
-kubectl delete service k8s-proxy
-kubectl apply -f k8s-proxy.yml
+if [ "build" = "$1" ] || [ "--build" = "$1" ] || [ "" = "$(docker images -q $IMAGE)" ]; then
+    echo "building image..."
+    docker build -t $IMAGE . &> /dev/null
+    exit_code=$?
+    if [ "0" != "$exit_code" ]; then
+        echo "  building image '$IMAGE' failed"
+        exit $exit_code
+    fi
+fi
+
+echo "removing k8s-proxy deployment and service..."
+kubectl delete deploy  k8s-proxy &> /dev/null
+kubectl delete service k8s-proxy &> /dev/null
+
+echo "applying k8s-proxy deployment and service..."
+kubectl apply -f k8s-proxy.yml > /dev/null
 
 pod=
 printf "\n"
-while [ ! -n "$pod" ]; do
+count=0
+while [ ! -n "$pod" ] && [ "60" -gt "$count" ]; do
+    sleep 1
+    pod=$(kubectl get po | grep k8s-proxy | grep -i running | grep '1/1' | awk '{print $1}')
     printf "."
-    pod=$(kubectl get po | grep k8s-proxy | grep -i running | awk '{print $1}')
+    ((count+=1))
 done
 printf "\n"
 
@@ -35,7 +55,7 @@ echo
 echo "Deployment:"
 echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
 echo
-echo "Pods:"
+echo "Pod:"
 echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
 

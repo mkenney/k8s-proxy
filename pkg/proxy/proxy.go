@@ -31,11 +31,13 @@ func New(
 		Dev:        dev,
 		Port:       port,
 		SecurePort: securePort,
+		Timeout:    timeout,
+
+		readyCh: make(chan struct{}, 2),
 		serviceMap: ServiceMap{
 			"http":  make(map[string]*Service),
 			"https": make(map[string]*Service),
 		},
-		Timeout: timeout,
 	}
 	proxy.K8s, err = k8s.New()
 	return proxy, err
@@ -53,6 +55,8 @@ type Proxy struct {
 	SecurePort int
 	Timeout    int
 
+	ready      bool
+	readyCh    chan struct{}
 	svcMapMux  sync.Mutex
 	serviceMap ServiceMap
 }
@@ -73,31 +77,45 @@ ServiceMap is a map of k8s service name to proxy description.
 type ServiceMap map[string]map[string]*Service
 
 /*
-AddService adds a service to the map.
+AddService adds a service to the passthrough map.
 */
 func (proxy *Proxy) AddService(service apiv1.Service) error {
-	proxy.svcMapMux.Lock()
-	defer proxy.svcMapMux.Unlock()
-
+	if service.Name == "k8s-proxy" {
+		return fmt.Errorf("'k8s-proxy' cannot be a proxy target")
+	}
 	for _, port := range service.Spec.Ports {
-		if "TCP" == port.Protocol && service.Name != "k8s-proxy" {
-			log.Infof("registering service '%s:%d'", service.Name, port.Port)
+		if port.Port >= 80 && "TCP" == port.Protocol {
+			log.WithFields(log.Fields{
+				"name": service.Name,
+				"port": port.Port,
+			}).Info("registering service")
+
+			protocol := "http"
+			if 443 == port.Port {
+				protocol = "https"
+			}
+			if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
+				protocol = strings.ToLower(service.Labels["k8s-proxy-protocol"])
+			}
+
+			domain := service.Name
+			if _, ok := service.Labels["k8s-proxy-domain"]; ok {
+				domain = service.Labels["k8s-proxy-domain"]
+			}
+
 			rp, err := NewReverseProxy(service)
 			if nil != err {
 				return err
 			}
 
-			scheme := "http"
-			if "443" == rp.URL.Port() {
-				scheme = "https"
-			}
-
-			proxy.serviceMap[scheme][service.Name] = &Service{
+			proxy.svcMapMux.Lock()
+			proxy.serviceMap[protocol][domain] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
 				Proxy:    rp,
 			}
+			proxy.svcMapMux.Unlock()
 		}
 	}
 	return nil
@@ -111,53 +129,76 @@ func (proxy *Proxy) Map() map[string]apiv1.Service {
 }
 
 /*
+Pass passes HTTP traffic through to the requested service.
+*/
+func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
+	protocol := "http"
+	if nil != r.TLS {
+		protocol = "https"
+	}
+
+	service := proxy.Default
+	for k := range proxy.serviceMap[protocol] {
+		if strings.HasPrefix(r.Host, k+".") {
+			service = k
+			break
+		}
+	}
+
+	if svc, ok := proxy.serviceMap[protocol][service]; ok {
+		log.WithFields(log.Fields{
+			"endpoint": svc.Proxy.URL,
+			"request":  fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
+		}).Infof("serving request")
+		svc.Proxy.ServeHTTP(w, r)
+
+	} else {
+		log.WithFields(log.Fields{
+			"url": fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
+		}).Warn("request failed, no matching service found")
+		w.WriteHeader(http.StatusBadGateway)
+		HTTPErrs[502].Execute(w, struct {
+			Host     string
+			Scheme   string
+			Services map[string]*Service
+		}{
+			Host:     r.Host,
+			Scheme:   strings.ToUpper(protocol),
+			Services: proxy.serviceMap[protocol],
+		})
+	}
+}
+
+/*
 RemoveService removes a service from the map.
 */
 func (proxy *Proxy) RemoveService(service apiv1.Service) error {
-	proxy.svcMapMux.Lock()
-	defer proxy.svcMapMux.Unlock()
-
 	for _, port := range service.Spec.Ports {
-		scheme := "http"
+		protocol := "http"
 		if 443 == port.Port {
-			scheme = "https"
+			protocol = "https"
 		}
-		if _, ok := proxy.serviceMap[scheme][service.Name]; ok {
-			log.Infof("removing service '%s:%d'", service.Name, port.Port)
-			delete(proxy.serviceMap[scheme], service.Name)
+		if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
+			protocol = service.Labels["k8s-proxy-protocol"]
+		}
+
+		domain := service.Name
+		if _, ok := service.Labels["k8s-proxy-domain"]; ok {
+			domain = service.Labels["k8s-proxy-domain"]
+		}
+
+		if _, ok := proxy.serviceMap[protocol][domain]; ok {
+			log.WithFields(log.Fields{
+				"name": service.Name,
+				"port": port.Port,
+			}).Info("removing service")
+			proxy.svcMapMux.Lock()
+			delete(proxy.serviceMap[protocol], domain)
+			proxy.svcMapMux.Unlock()
 		}
 	}
 
 	return nil
-}
-
-/*
-Pass passes HTTP traffic through to the requested service.
-*/
-func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
-	scheme := "http"
-	if nil != r.TLS {
-		scheme = "https"
-	}
-
-	service := proxy.Default
-	for _, scheme := range []string{"http", "https"} {
-		for k := range proxy.serviceMap[scheme] {
-			if strings.HasPrefix(r.Host, k+".") {
-				service = k
-				break
-			}
-		}
-	}
-
-	if svc, ok := proxy.serviceMap[scheme][service]; ok {
-		log.Infof("serving '%s://%s%s' => '%s'", scheme, r.Host, r.URL, svc.Proxy.URL)
-		svc.Proxy.proxy.ServeHTTP(w, r)
-	} else {
-		log.Warnf("request for '%s://%s%s' failed, no matching service name", scheme, r.Host, r.URL)
-		w.WriteHeader(http.StatusBadGateway)
-		w.Write([]byte(fmt.Sprintf(HTTPErrs[502], strings.ToUpper(scheme), r.Host)))
-	}
 }
 
 /*
@@ -169,8 +210,11 @@ func (proxy *Proxy) Start() chan error {
 	// Set the global timeout.
 	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
 
-	// Start the change watcher and the updater.
+	// Start the change watcher and the updater. This will block until
+	// data is available.
 	changes := proxy.K8s.Services.Watch(5)
+	proxy.readyCh <- struct{}{}
+	close(proxy.readyCh)
 	go func() {
 		for delta := range changes {
 			proxy.UpdateServices(delta)
@@ -178,29 +222,60 @@ func (proxy *Proxy) Start() chan error {
 		}
 	}()
 
-	// Add kubernetes healthcheck endpoints.
-	http.HandleFunc("/alive", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("alive"))
-	})
-	http.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ready"))
+	// Kubernetes liveness probe handler.
+	http.HandleFunc("/x8s-alive", func(w http.ResponseWriter, r *http.Request) {
+		log.WithFields(log.Fields{
+			"url": r.URL,
+		}).Infof("liveness probe OK")
+		w.Write([]byte("200 OK"))
 	})
 
-	// Add passthrough handler.
+	// Kubernetes readiness probe handler.
+	http.HandleFunc("/x8s-ready", func(w http.ResponseWriter, r *http.Request) {
+		if proxy.ready {
+			log.WithFields(log.Fields{
+				"url": r.URL,
+			}).Infof("readiness probe OK")
+			w.Write([]byte("OK"))
+			return
+		}
+		log.WithFields(log.Fields{
+			"url": r.URL,
+		}).Error("Service Unavailable - readiness probe failed")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		HTTPErrs[503].Execute(w, struct {
+			Reason string
+			Host   string
+		}{
+			Reason: "readiness probe failed",
+			Host:   r.Host,
+		})
+	})
+
+	// Use the passthrough handler for all other routes.
+	log.WithFields(log.Fields{
+		"port": proxy.Port,
+	}).Info("starting kubernetes proxy")
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		proxy.Pass(w, r)
 	})
 
-	log.WithFields(log.Fields{
-		"port": proxy.Port,
-	}).Info("starting kubernetes proxy")
-
+	// Start the HTTP passthrough server.
 	go func() {
-		log.Infof("starting unsecured proxy on port %d", proxy.Port)
-		errs <- http.ListenAndServe(fmt.Sprintf(":%d", proxy.Port), nil)
+		log.WithFields(log.Fields{
+			"port": proxy.Port,
+		}).Info("starting HTTP passthrough service")
+		errs <- http.ListenAndServe(
+			fmt.Sprintf(":%d", proxy.Port),
+			nil,
+		)
 	}()
+
+	// Start the SSL passthrough server.
 	go func() {
-		log.Infof("starting secured proxy on port %d", proxy.SecurePort)
+		log.WithFields(log.Fields{
+			"port": proxy.SecurePort,
+		}).Infof("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
 			fmt.Sprintf(":%d", proxy.SecurePort),
 			"/go/src/github.com/mkenney/k8s-proxy/server.crt",
@@ -231,6 +306,17 @@ func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
 	for _, service := range delta.Removed {
 		proxy.RemoveService(service)
 	}
+}
+
+/*
+Wait will block until the k8s services are ready
+*/
+func (proxy *Proxy) Wait() {
+	if proxy.ready {
+		return
+	}
+	<-proxy.readyCh
+	proxy.ready = true
 }
 
 /*

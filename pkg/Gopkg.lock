@@ -78,6 +78,12 @@
   version = "1.0.1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/mkenney/go-log-fmt"
+  packages = ["."]
+  revision = "b3a97b78d48ce646f5573151930e4856c976e7a9"
+
+[[projects]]
   name = "github.com/modern-go/concurrent"
   packages = ["."]
   revision = "bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94"
@@ -110,14 +116,14 @@
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
-  version = "v1.0.0"
+  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "b2aa35443fbc700ab74c586ae79b81c171851023"
+  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
 
 [[projects]]
   branch = "master"
@@ -128,7 +134,7 @@
     "idna",
     "lex/httplex"
   ]
-  revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+  revision = "500e7a4f953ddaf55d316b4d3adc516aa0379622"
 
 [[projects]]
   branch = "master"
@@ -137,7 +143,7 @@
     "unix",
     "windows"
   ]
-  revision = "3b87a42e500a6dc65dae1a55d0b641295971163e"
+  revision = "2281fa97ef7b0c26324634d5a22f04babdac8713"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -205,7 +211,7 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "8759fda11383a1087cf16b1500ce5804fa9f32e7"
+  revision = "6fb8575d8ac324ad9f9605dec64b7a4b8a632e79"
 
 [[projects]]
   branch = "master"
@@ -247,7 +253,7 @@
     "pkg/watch",
     "third_party/forked/golang/reflect"
   ]
-  revision = "5d4f0da8e5fde7cbadf8ab3ce5cfb76f86dd854e"
+  revision = "ba81bc69c72dde92d5f1fefa2fa6d82aa83a6676"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -300,6 +306,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "770819c70d7cedb1e34d4a185e311b1dad8a60be001019ec13471ee32512f5c8"
+  inputs-digest = "0a5af5c9d8a6d81fe51a796480ea24b24f8b013386528bd30dbd5d88c47efc4d"
   solver-name = "gps-cdcl"
   solver-version = 1
