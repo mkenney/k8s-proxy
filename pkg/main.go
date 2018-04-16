@@ -76,7 +76,7 @@ func init() {
 	level, err := log.ParseLevel(levelFlag)
 	if nil != err {
 		log.Warnf("Could not parse log level flag '%s', setting to 'debug'...", err.Error())
-		levelFlag = "debug"
+		level, _ = log.ParseLevel("debug")
 	}
 	log.SetFormatter(&logfmt.TextFormat{})
 	log.SetLevel(level)

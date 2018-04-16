@@ -49,10 +49,6 @@ seconds to wait between API update requests. Must be greater than 0.
 Default value is 5.
 */
 func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
-	if frequency <= 0 {
-		frequency = 5
-	}
-
 	services.interrupt = make(chan bool)
 	changeSetCh := make(chan ChangeSet)
 	readyCh := make(chan bool)
@@ -101,13 +97,6 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 					}
 					changeSet := diffServices(serviceMap, svcMap)
 					serviceMap = svcMap
-
-					//log.Debugf(
-					//	"updated available services; %d added, %d removed, %d total",
-					//	len(changeSet.Added),
-					//	len(changeSet.Removed),
-					//	len(serviceMap),
-					//)
 
 					// Allow the launching routine to continue once the
 					// initial data set has been loaded.
