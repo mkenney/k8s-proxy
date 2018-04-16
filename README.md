@@ -7,6 +7,8 @@
     <td rowspan="7">
         This project provides a very simple proxy service for easily working on multiple projects in a development environment in <a href="https://kubernetes.io/" target="_blank">Kubernetes</a>.
         <br><br>
+        <a href="https://hub.docker.com/r/mkenney/k8s-proxy/">Docker image here</a>.
+        <br><br>
 		The <a href="https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml"><code>k8s-proxy.yml</code></a> file defines a service listening on port <code>80</code> and an associated deployment. The deployment runs a single pod with minimal resource requirements (they could probably be lower) that accesses the `kubernetes` API in the cluster it's running in and proxies all traffic on port 80 to a running service with a defined TCP port who's name is a prefix matching the requested domain.
         <br><br>
 		SSL passthrough is still a work in progress.
