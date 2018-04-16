@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strconv"
 
+	logfmt "github.com/mkenney/go-log-fmt"
 	"github.com/mkenney/k8s-proxy/pkg/proxy"
 	log "github.com/sirupsen/logrus"
 )
@@ -41,7 +42,7 @@ func init() {
 
 	DEFAULTSVC = os.Getenv("DEFAULTSVC")
 	if "" == DEFAULTSVC {
-		log.Warnf("DEFAULTSVC env not set, setting to 'kubernetes'")
+		log.Warnf("DEFAULTSVC env not set, defaulting to 'kubernetes'")
 		DEFAULTSVC = "kubernetes"
 	}
 
@@ -51,21 +52,34 @@ func init() {
 
 	PORT, err = strconv.Atoi(os.Getenv("PORT"))
 	if nil != err || PORT > 65535 {
-		log.Warnf("invalid PORT env '%d', setting to 80", PORT)
+		log.Warnf("invalid PORT env '%d', defaulting to port 80", PORT)
 		PORT = 80
 	}
 
 	SECUREPORT, err = strconv.Atoi(os.Getenv("SECUREPORT"))
 	if nil != err || SECUREPORT > 65535 {
-		log.Warnf("invalid SECUREPORT env '%d', setting to 443", SECUREPORT)
+		log.Warnf("invalid SECUREPORT env '%d', defaulting to port 443", SECUREPORT)
 		SECUREPORT = 443
 	}
 
 	TIMEOUT, err = strconv.Atoi(os.Getenv("TIMEOUT"))
 	if nil != err || TIMEOUT > 900 || TIMEOUT < 0 {
-		log.Warnf("invalid TIMEOUT env '%d', setting to 10", TIMEOUT)
+		log.Warnf("invalid TIMEOUT env '%d', defaulting to 10 seconds", TIMEOUT)
 		TIMEOUT = 10
 	}
+
+	// log level and format
+	levelFlag := os.Getenv("LOG_LEVEL")
+	if "" == levelFlag {
+		levelFlag = "info"
+	}
+	level, err := log.ParseLevel(levelFlag)
+	if nil != err {
+		log.Warnf("Could not parse log level flag '%s', setting to 'debug'...", err.Error())
+		levelFlag = "debug"
+	}
+	log.SetFormatter(&logfmt.TextFormat{})
+	log.SetLevel(level)
 }
 
 func main() {

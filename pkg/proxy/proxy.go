@@ -223,13 +223,13 @@ func (proxy *Proxy) Start() chan error {
 	}()
 
 	// Kubernetes liveness probe handler.
-	http.HandleFunc("/livenessProbe", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/x8s-alive", func(w http.ResponseWriter, r *http.Request) {
 		log.Debug("liveness probe OK")
 		w.Write([]byte("OK"))
 	})
 
 	// Kubernetes readiness probe handler.
-	http.HandleFunc("/readinessProbe", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/x8s-ready", func(w http.ResponseWriter, r *http.Request) {
 		if proxy.ready {
 			log.Debug("readiness probe OK")
 			w.Write([]byte("OK"))
@@ -247,13 +247,12 @@ func (proxy *Proxy) Start() chan error {
 	})
 
 	// Use the passthrough handler for all other routes.
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		proxy.Pass(w, r)
-	})
-
 	log.WithFields(log.Fields{
 		"port": proxy.Port,
 	}).Info("starting kubernetes proxy")
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		proxy.Pass(w, r)
+	})
 
 	// Start the HTTP passthrough server.
 	go func() {

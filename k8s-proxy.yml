@@ -71,7 +71,7 @@ spec:
                             memory: 128Mi
                     livenessProbe:
                         httpGet:
-                            path: "/xalive"
+                            path: "/k8s-alive"
                             port: 80
                             scheme: HTTP
                         failureThreshold: 2
@@ -80,7 +80,7 @@ spec:
                         timeoutSeconds: 5
                     readinessProbe:
                         httpGet:
-                            path: "/xready"
+                            path: "/k8s-ready"
                             port: 80
                             scheme: HTTP
                         failureThreshold: 2
