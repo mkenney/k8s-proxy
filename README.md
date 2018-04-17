@@ -9,7 +9,15 @@
         <br><br>
         <a href="https://hub.docker.com/r/mkenney/k8s-proxy/">Docker image here</a>.
         <br><br>
-		The <a href="https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml"><code>k8s-proxy.yml</code></a> file defines a service listening on port <code>80</code> and an associated deployment. The deployment runs a single pod with minimal resource requirements (they could probably be lower) that accesses the `kubernetes` API in the cluster it's running in and proxies all traffic on port 80 to a running service with a defined TCP port who's name is a prefix matching the requested domain.
+		The <a href="https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml"><code>k8s-proxy.yml</code></a> file defines a service listening on port <code>80</code> and an associated deployment. The deployment runs a single pod with minimal resource requirements (they could probably be lower) that accesses the <code>kubernetes</code> API in the cluster it's running in and proxies all traffic on port 80 to a running service with a defined TCP port who's name is a prefix matching the requested domain.
+        <br><br>
+        You may also define the matching string using labels in the service for the hostname and HTTP protocol. For example:
+        <div class="highlight highlight-source-yaml">
+metadata:
+    labels:
+        k8s-proxy-protocol: http
+        k8s-proxy-domain: myservice.somedomain
+        </div>
         <br><br>
 		SSL passthrough is still a work in progress.
     </td>
