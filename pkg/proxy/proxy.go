@@ -153,7 +153,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		}).Infof("serving request")
 
 		// wrap it to capture the status code
-		proxyWriter := &ResponseWriter{w, 200}
+		proxyWriter := &ResponseWriter{200, w}
 		svc.Proxy.ServeHTTP(proxyWriter, r)
 
 		if 502 == proxyWriter.Status() {
