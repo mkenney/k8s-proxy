@@ -149,7 +149,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	if svc, ok := proxy.serviceMap[protocol][service]; ok {
 		log.WithFields(log.Fields{
 			"endpoint": svc.Proxy.URL,
-			"request":  fmt.Sprintf("%s://%s%s", r.Proto, r.Host, r.URL),
+			"referer":  r.Referer(),
 		}).Infof("serving request")
 
 		// wrap it to capture the status code
@@ -164,9 +164,11 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 			HTTPErrs[503].Execute(w, struct {
 				Reason string
 				Host   *url.URL
+				Msg    string
 			}{
 				Reason: fmt.Sprintf("%d %s", proxyWriter.Status(), http.StatusText(proxyWriter.Status())),
 				Host:   svc.Proxy.URL,
+				Msg:    "The deployed pod(s) may be unresponsive.",
 			})
 		}
 
@@ -264,9 +266,11 @@ func (proxy *Proxy) Start() chan error {
 		HTTPErrs[503].Execute(w, struct {
 			Reason string
 			Host   string
+			Msg    string
 		}{
 			Reason: "readiness probe failed",
 			Host:   r.Host,
+			Msg:    "proxy service is not yet ready",
 		})
 	})
 

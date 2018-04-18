@@ -38,22 +38,28 @@ func init() {
 			p.sub, ul {
 				font-size: 0.8em;
 			}
+			.arr {
+				font-family: Helvetica, Arial, sans-serif;
+			}
 		</style>
 	</head>
 	<body>
 		<h1>502 Bad Gateway</h1>
 		<p>
-			The requested service could not be reached<br>
+			The requested service could not be reached.
 		</p>
 		<p class="sub">
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: No {{.Scheme}} service could be matched to host '{{.Host}}'.
+			No routable services match the request '{{.Scheme|ToLower}}://{{.Host}}'.
 		</p>
 		<p class="sub">
-			Routable services:
+			Available routes:
 			<ul>
 				{{$scheme := .Scheme}}
-				{{range $k, $v := .Services}}<li>{{$v.Name}} => <i>{{$scheme|ToLower}}://{{ $k }}.*</i></li>{{end}}
+				{{range $k, $v := .Services}}<li>{{$scheme|ToLower}}://{{ $k }}.* <span class="arr">&rarr;</span> {{$v.Name}}</li>{{end}}
 			</ul>
+		</p>
+		<p class="sub">
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>
 		</p>
 	</body>
 </html>`)
@@ -77,10 +83,13 @@ func init() {
 	<body>
 		<h1>503 Service Unavailable</h1>
 		<p>
-		<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: The requested service is currently unavailable.
+			The specified service did not respond to the request.
 		</p>
 		<p class="sub">
-			{{.Host}} responded with <b>{{.Reason}}</b>
+			Received <b>{{.Reason}}</b> from <i>{{.Host}}</i>. {{.Msg}}
+		</p>
+		<p class="sub">
+			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>
 		</p>
 	</body>
 </html>`)
