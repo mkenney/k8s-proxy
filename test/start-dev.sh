@@ -53,16 +53,16 @@ fi
 
 echo
 echo "removing service1 deployment and service..."
-kubectl delete deploy  service1 > /dev/null
-kubectl delete service service1 > /dev/null
+kubectl delete deploy  service1 &> /dev/null
+kubectl delete service service1 &> /dev/null
 
 echo "removing service2 deployment and service..."
-kubectl delete deploy  service2 > /dev/null
-kubectl delete service service2 > /dev/null
+kubectl delete deploy  service2 &> /dev/null
+kubectl delete service service2 &> /dev/null
 
 echo "removing k8s-proxy deployment and service..."
-kubectl delete deploy  k8s-proxy > /dev/null
-kubectl delete service k8s-proxy > /dev/null
+kubectl delete deploy  k8s-proxy &> /dev/null
+kubectl delete service k8s-proxy &> /dev/null
 #kubectl delete ingress k8s-proxy
 
 cd $workdir
@@ -98,4 +98,7 @@ echo "Pod:"
 echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
 
-kubectl logs -f $pod
+# hide the readiness/liveness probe noise...
+echo "Executing \`kubectl logs -f $pod | grep -v 'probe OK'\`..."
+echo
+kubectl logs -f $pod | grep -v 'probe OK'
