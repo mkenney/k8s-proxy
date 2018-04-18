@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"html/template"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -20,7 +21,11 @@ func init() {
 		}
 	}
 
-	HTTPErrs[502], err = template.New("502").Parse(`<!DOCTYPE html>
+	funcMap := template.FuncMap{
+		"ToLower": strings.ToLower,
+	}
+
+	HTTPErrs[502], err = template.New("502").Funcs(funcMap).Parse(`<!DOCTYPE html>
 <html>
 	<head>
 		<title>Bad Gateway</title>
@@ -46,14 +51,15 @@ func init() {
 		<p class="sub">
 			Routable services:
 			<ul>
-				{{range .Services}}<li>{{ .Name }}</li>{{end}}
+				{{$scheme := .Scheme}}
+				{{range $k, $v := .Services}}<li>{{$v.Name}} => <i>{{$scheme|ToLower}}://{{ $k }}.*</i></li>{{end}}
 			</ul>
 		</p>
 	</body>
 </html>`)
 	check(err)
 
-	HTTPErrs[503], err = template.New("503").Parse(`<!DOCTYPE html>
+	HTTPErrs[503], err = template.New("503").Funcs(funcMap).Parse(`<!DOCTYPE html>
 <html>
 	<head>
 		<title>Service Unavailable</title>
@@ -71,10 +77,10 @@ func init() {
 	<body>
 		<h1>503 Service Unavailable</h1>
 		<p>
-			The proxy service is currently unavailable.
+		<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: The requested service is currently unavailable.
 		</p>
 		<p class="sub">
-			<a href="https://github.com/mkenney/k8s-proxy/" target="_blank">k8s-proxy</a>: {{.Reason}} {{.Host}}
+			{{.Host}} responded with <b>{{.Reason}}</b>
 		</p>
 	</body>
 </html>`)

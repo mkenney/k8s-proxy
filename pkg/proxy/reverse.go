@@ -14,23 +14,29 @@ import (
 /*
 NewReverseProxy creates a new reverse proxy to forward traffic through.
 */
-func NewReverseProxy(service apiv1.Service) (*ReverseProxy, error) {
-	scheme := "http"
-	if 443 == service.Spec.Ports[0].Port {
-		scheme = "https"
+func NewReverseProxy(service apiv1.Service, port apiv1.ServicePort) (*ReverseProxy, error) {
+	protocol := "http"
+	if 443 == port.Port {
+		protocol = "https"
+	}
+	if "https" == port.Protocol {
+		protocol = "https"
+	}
+	if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
+		protocol = service.Labels["k8s-proxy-protocol"]
 	}
 
-	port := service.Spec.Ports[0].Port
-	if 0 > service.Spec.Ports[0].NodePort {
-		port = service.Spec.Ports[0].NodePort
+	proxyPort := port.Port
+	if 0 > port.NodePort {
+		proxyPort = service.Spec.Ports[0].NodePort
 	}
 
 	clusterURL, err := url.Parse(fmt.Sprintf(
 		"%s://%s.%s.svc.cluster.local:%d",
-		scheme,
+		protocol,
 		service.Name,
 		service.Namespace,
-		port,
+		proxyPort,
 	))
 	if nil != err {
 		return nil, err

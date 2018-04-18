@@ -60,6 +60,6 @@ echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
 
 # hide the readiness/liveness probe noise...
-echo "Executing \"kubectl logs -f $pod | grep -v 'probe OK'\"..."
+echo "Tailing the logs..."
 echo
 kubectl logs -f $pod | grep -v 'probe OK'

@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -103,7 +104,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 				domain = service.Labels["k8s-proxy-domain"]
 			}
 
-			rp, err := NewReverseProxy(service)
+			rp, err := NewReverseProxy(service, port)
 			if nil != err {
 				return err
 			}
@@ -148,13 +149,30 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	if svc, ok := proxy.serviceMap[protocol][service]; ok {
 		log.WithFields(log.Fields{
 			"endpoint": svc.Proxy.URL,
-			"request":  fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
+			"request":  fmt.Sprintf("%s://%s%s", r.Proto, r.Host, r.URL),
 		}).Infof("serving request")
-		svc.Proxy.ServeHTTP(w, r)
+
+		// wrap it to capture the status code
+		proxyWriter := &ResponseWriter{w, 200}
+		svc.Proxy.ServeHTTP(proxyWriter, r)
+
+		if 502 == proxyWriter.Status() {
+			log.WithFields(log.Fields{
+				"status": http.StatusText(proxyWriter.Status()),
+				"host":   r.Host,
+			}).Infof("service responded with an error")
+			HTTPErrs[503].Execute(w, struct {
+				Reason string
+				Host   *url.URL
+			}{
+				Reason: fmt.Sprintf("%d %s", proxyWriter.Status(), http.StatusText(proxyWriter.Status())),
+				Host:   svc.Proxy.URL,
+			})
+		}
 
 	} else {
 		log.WithFields(log.Fields{
-			"url": fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
+			"url": fmt.Sprintf("%s://%s%s", r.Proto, r.Host, r.URL),
 		}).Warn("request failed, no matching service found")
 		w.WriteHeader(http.StatusBadGateway)
 		HTTPErrs[502].Execute(w, struct {
