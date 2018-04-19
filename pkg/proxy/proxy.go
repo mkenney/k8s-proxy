@@ -86,10 +86,6 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 	}
 	for _, port := range service.Spec.Ports {
 		if port.Port >= 80 && "TCP" == port.Protocol {
-			log.WithFields(log.Fields{
-				"name": service.Name,
-				"port": port.Port,
-			}).Info("registering service")
 
 			protocol := "http"
 			if 443 == port.Port {
@@ -108,6 +104,12 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 			if nil != err {
 				return err
 			}
+
+			log.WithFields(log.Fields{
+				"name":     domain,
+				"port":     port.Port,
+				"protocol": protocol,
+			}).Info("registering service")
 
 			proxy.svcMapMux.Lock()
 			proxy.serviceMap[protocol][domain] = &Service{
@@ -168,7 +170,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 			}{
 				Reason: fmt.Sprintf("%d %s", proxyWriter.Status(), http.StatusText(proxyWriter.Status())),
 				Host:   svc.Proxy.URL,
-				Msg:    "The deployed pod(s) may be unresponsive.",
+				Msg:    "The deployed pod(s) may be unavailable or unresponsive.",
 			})
 		}
 
@@ -207,11 +209,13 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 			domain = service.Labels["k8s-proxy-domain"]
 		}
 
+		log.WithFields(log.Fields{
+			"name":     domain,
+			"port":     port.Port,
+			"protocol": protocol,
+		}).Info("removing service")
+
 		if _, ok := proxy.serviceMap[protocol][domain]; ok {
-			log.WithFields(log.Fields{
-				"name": service.Name,
-				"port": port.Port,
-			}).Info("removing service")
 			proxy.svcMapMux.Lock()
 			delete(proxy.serviceMap[protocol], domain)
 			proxy.svcMapMux.Unlock()
