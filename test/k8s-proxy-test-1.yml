@@ -2,13 +2,10 @@
 kind: Service
 apiVersion: v1
 metadata:
-    name: service1
-    labels:
-        k8s-proxy-domain: service1test
-        k8s-proxy-protocol: HTTP
+    name: k8s-proxy-test-1
 spec:
     selector:
-        app: service1
+        app: k8s-proxy-test-1
     type: LoadBalancer
     ports:
         -   port: 81
@@ -20,9 +17,9 @@ spec:
 kind: Deployment
 apiVersion: apps/v1beta1
 metadata:
-    name: service1
+    name: k8s-proxy-test-1
     labels:
-        app: service1
+        app: k8s-proxy-test-1
 spec:
     replicas: 1
     strategy:
@@ -32,12 +29,12 @@ spec:
         type: RollingUpdate
     template:
         metadata:
-            name: service1
+            name: k8s-proxy-test-1
             labels:
-                app: service1
+                app: k8s-proxy-test-1
         spec:
             containers:
-                -   name: service1
+                -   name: k8s-proxy-test-1
                     image: nginx
                     imagePullPolicy: IfNotPresent
                     ports:
@@ -74,4 +71,4 @@ spec:
             volumes:
                 -   name: htmlpath
                     hostPath:
-                        path: $PWD/service1
+                        path: $PWD/k8s-proxy-test-1

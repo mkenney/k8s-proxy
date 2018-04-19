@@ -1,14 +1,26 @@
-# Ingress
-#apiVersion: extensions/v1beta1
-#kind: Ingress
-#metadata:
-#    name: k8s-proxy
-#    labels:
-#        app: k8s-proxy
-#spec:
-#    backend:
-#        serviceName: k8s-proxy
-#        servicePort: 80
+# HTTP Ingress
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+    name: k8s-proxy
+    labels:
+        app: k8s-proxy
+spec:
+    backend:
+        serviceName: k8s-proxy
+        servicePort: 80
+---
+# SSL Ingress
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+    name: k8s-proxy-ssl
+    labels:
+        app: k8s-proxy-ssl
+spec:
+    backend:
+        serviceName: k8s-proxy
+        servicePort: 443
 ---
 # Service
 kind: Service
@@ -102,9 +114,14 @@ spec:
                         periodSeconds: 10
                         timeoutSeconds: 5
                     volumeMounts:
+                        -   mountPath: /go/src/github.com/mkenney/k8s-proxy/assets
+                            name: assetpath
                         -   mountPath: /go/bin
                             name: binpath
             volumes:
+                -   name: assetpath
+                    hostPath:
+                        path: $PWD/assets
                 -   name: binpath
                     hostPath:
-                        path: /Users/mkenney/repos/src/github.com/mkenney/k8s-proxy/test/bin
+                        path: $PWD/bin

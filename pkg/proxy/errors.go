@@ -46,7 +46,7 @@ func init() {
 	<body>
 		<h1>502 Bad Gateway</h1>
 		<p>
-			The requested service could not be reached.
+			The requested service could not be found.
 		</p>
 		<p class="sub">
 			No routable services match the request '{{.Scheme|ToLower}}://{{.Host}}'.
@@ -83,7 +83,7 @@ func init() {
 	<body>
 		<h1>503 Service Unavailable</h1>
 		<p>
-			The specified service did not respond to the request.
+			The requested service did not respond.
 		</p>
 		<p class="sub">
 			Received <b>{{.Reason}}</b> from <i>{{.Host}}</i>. {{.Msg}}

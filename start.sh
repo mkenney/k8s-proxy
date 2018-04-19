@@ -6,21 +6,43 @@ DEPLOYMENT=k8s-proxy
 echo "
 Starting the k8s-proxy service.
 
-The \`k8s-proxy\` service should serve all traffic on a specified port.
-Ports are not yet configurable via this script but can be set in
+The \`k8s-proxy\` service will serve all traffic on a specified port.
+Ports are not configurable via this script but can be changed in
 \`k8s-proxy.yml\`. You must set both the exposed ports in the deployment
 and service as well as the PORT and SECUREPORT environment variables in
-the deployment.
+the deployment. Exposing the ports allows them to receive traffic and
+defining the environment variables tells the proxy serice which ports
+to listen on.
 
-THe proxy will route based on the domain being requested. For example,
-http://service1.somehost will route the request to the TCP port exposed
-by \`service1\` and http://service2.somehost will route to \`service2\`
-using the internal \`kube-dns\` hostname.
+The proxy will route traffic by matching the domain being requested to
+a service running in the cluster. By default, this is done based on the
+service name. For example a request for http://service1.any.host.here
+would be routed to a service named 'service1', if it exists.
 
-Not for production use.
+That's convenient but can be cumbersom in practice however, you may also
+apply labels to the service to be used by the proxy:
+
+    kind: Service
+    apiVersion: v1
+    metadata:
+        name: ui_backend_service
+        labels:
+            -   k8s-proxy-domain: api.myapp
+                k8s-proxy-protocol: HTTP
+
+With labels you can be sure that traffic to http://api.myapp.any.host.here
+will be routed to your service, but https://api.myapp.any.host.here (ssl)
+traffic won't.
+
+Not for production use. Make sure you're configured for the correct
+environment...
 "
+count=5
+while [ "0" -lt "$count" ]; do
+    printf "."; ((count-=1)); sleep 1
+done
 
-if [ "build" = "$1" ] || [ "--build" = "$1" ] || [ "" = "$(docker images -q $IMAGE)" ]; then
+if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     echo "building image..."
     docker build -t $IMAGE . &> /dev/null
     exit_code=$?
@@ -55,11 +77,11 @@ echo
 echo "Deployment:"
 echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
 echo
-echo "Pod:"
+echo "Pods:"
 echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
 
 # hide the readiness/liveness probe noise...
-echo "Tailing the logs..."
+echo "kubectl logs -f $pod | grep -v 'probe OK'"
 echo
 kubectl logs -f $pod | grep -v 'probe OK'

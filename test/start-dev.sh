@@ -4,21 +4,14 @@ IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
 
 echo "
-Starting the k8s-proxy service and test services.
+Starting proxy and test services.
 
-This script will start 3 services.
+This script will build the binary from the current source and start (or
+restart) the proxy service, mounting the binary into the container.
 
-* service1, service2
-    These two services are simple nginx services hosting a page that
-    reports which of the two services is being accessed. Neither of
-    these services are listening on port 80, that is reserved for the
-    proxy service.
-
-    For each of these services, this script will create:
-        - a service and deployment for routing traffic and loadbalancing
-        pods, listening on port 81.
-        - 1 Nginx pod (0.1 CPU, 32Mb ram) that displays the name of it's
-        service and deployment.
+It will also start several simple nginx services to use for testing.
+Each one hosts a page that reports the name of the service being
+accessed. Each service represents a different test case:
 
 * k8s-proxy
     This service should serve all traffic on port 80 (working on 443...).
@@ -27,13 +20,42 @@ This script will start 3 services.
     \`service1\`, and http://service2.somehost should route to the
     deployment managed by \`service2\`.
 
-Not for production use.
+* k8s-proxy-test-1
+    No labels defined, traffic routed to the service name. Service
+    should be available at http://k8s-proxy-test-1... and should
+    result in a page that displays 'k8s-proxy-test-1'.
+
+* k8s-proxy-test-2
+    Labels defined, traffic routed to the specified subdomain:
+        k8s-proxy-domain: k8s-proxy-test-2-label
+        k8s-proxy-protocol: HTTP
+    Service should be available at http://k8s-proxy-test-2-label... and
+    should result in a page that displays 'k8s-proxy-test-2'.
+
+* k8s-proxy-test-3
+    Valid service deployed but no deployment to route traffic to.
+    Service is expected to be available at http://k8s-proxy-test-3...
+    and should instead result in a 503 error after a 30 second timeout
+    period.
+
+* k8s-proxy-test-4
+    No service deployed and navigating to http://k8s-proxy-test-4... (or
+    any other non-existant service) should immediately result in a 502
+    error.
+
+Not for production use. Make sure you're configured for the correct
+environment...
 "
+count=5
+while [ "0" -lt "$count" ]; do
+    printf "."; ((count-=1)); sleep 1
+done
+printf "\n"
 
 workdir=$(pwd)
 
 cd $workdir/..
-if [ "build" = "$1" ] || [ "--build" = "$1" ] || [ "" = "$(docker images -q $IMAGE)" ]; then
+if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     echo "building image..."
     docker build -t $IMAGE . &> /dev/null
     exit_code=$?
@@ -52,36 +74,43 @@ if [ "0" != "$?" ]; then
 fi
 
 echo
-echo "removing service1 deployment and service..."
-kubectl delete deploy  service1 &> /dev/null
-kubectl delete service service1 &> /dev/null
+echo "removing k8s-proxy-test-1 deployment and service..."
+kubectl delete deploy  k8s-proxy-test-1 &> /dev/null
+kubectl delete service k8s-proxy-test-1 &> /dev/null
 
-echo "removing service2 deployment and service..."
-kubectl delete deploy  service2 &> /dev/null
-kubectl delete service service2 &> /dev/null
+echo "removing k8s-proxy-test-2 deployment and service..."
+kubectl delete deploy  k8s-proxy-test-2 &> /dev/null
+kubectl delete service k8s-proxy-test-2 &> /dev/null
+
+echo "removing k8s-proxy-test-3 deployment and service..."
+kubectl delete service k8s-proxy-test-3 &> /dev/null
 
 echo "removing k8s-proxy deployment and service..."
 kubectl delete deploy  k8s-proxy &> /dev/null
 kubectl delete service k8s-proxy &> /dev/null
-#kubectl delete ingress k8s-proxy
+kubectl delete ingress k8s-proxy &> /dev/null
+kubectl delete ingress k8s-proxy-ssl &> /dev/null
 
 cd $workdir
 echo
-echo "applying service1 deployment and service..."
-cat service1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+echo "applying k8s-proxy-test-1 deployment and service..."
+cat k8s-proxy-test-1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
-echo "applying service2 deployment and service..."
-cat service2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+echo "applying k8s-proxy-test-2 deployment and service..."
+cat k8s-proxy-test-2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+
+echo "applying k8s-proxy-test-3 deployment and service..."
+cat k8s-proxy-test-3.yml | kubectl create -f - > /dev/null
 
 echo "applying k8s-proxy deployment and service..."
-kubectl apply -f k8s-proxy-dev.yml > /dev/null
+cat k8s-proxy-dev.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
 pod=
 printf "\n"
 trycount=0
 while [ ! -n "$pod" ] && [ "60" -gt "$trycount" ]; do
     sleep 1
-    pod=$(kubectl get po | grep k8s-proxy | grep -i running | grep '1/1' | awk '{print $1}')
+    pod=$(kubectl get po | grep 'k8s-proxy' | grep -i running | grep '1/1' | grep -v 'k8s-proxy-test' | awk '{print $1}')
     printf "."
     ((trycount+=1))
 done
@@ -94,9 +123,14 @@ echo
 echo "Deployment:"
 echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
 echo
-echo "Pod:"
+echo "Pods:"
 echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
+
+if [ "" = "$pod" ]; then
+    echo "Timed out waiting for pod to be ready"
+    exit 0
+fi
 
 # hide the readiness/liveness probe noise...
 echo "Executing \`kubectl logs -f $pod | grep -v 'probe OK'\`..."
