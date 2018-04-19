@@ -26,5 +26,6 @@ WORKDIR /go/bin
 COPY --from=builder /go/bin/k8s-proxy /go/bin/k8s-proxy
 COPY ./server.crt /go/src/github.com/mkenney/k8s-proxy/server.crt
 COPY ./server.key /go/src/github.com/mkenney/k8s-proxy/server.key
+COPY ./assets/favicon.ico /go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico
 
 ENTRYPOINT ["/go/bin/k8s-proxy"]

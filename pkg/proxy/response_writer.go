@@ -39,5 +39,5 @@ WriteHeader implements http.ResponseWriter
 */
 func (w *ResponseWriter) WriteHeader(code int) {
 	w.status = code
-	w.writer.WriteHeader(code)
+	//w.writer.WriteHeader(code)
 }

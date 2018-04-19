@@ -1,0 +1,14 @@
+# Service 2
+kind: Service
+apiVersion: v1
+metadata:
+    name: k8s-proxy-test-3
+spec:
+    selector:
+        app: k8s-proxy-test-3
+    type: LoadBalancer
+    ports:
+        -   port: 81
+            targetPort: 80
+            protocol: TCP
+            name: http
