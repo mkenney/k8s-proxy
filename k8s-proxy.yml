@@ -1,3 +1,17 @@
+# HTTP Ingress
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+    name: k8s-proxy
+spec:
+    rules:
+    -   http:
+            paths:
+            -   path: /*
+                backend:
+                    serviceName: k8s-proxy
+                    servicePort: 80
+---
 # Service
 kind: Service
 apiVersion: v1

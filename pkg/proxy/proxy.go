@@ -295,7 +295,7 @@ func (proxy *Proxy) Start() chan error {
 	}()
 
 	// Kubernetes liveness probe handler.
-	http.HandleFunc("/x8s-alive", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/k8s-alive", func(w http.ResponseWriter, r *http.Request) {
 		log.WithFields(log.Fields{
 			"url": r.URL,
 		}).Infof("liveness probe OK")
@@ -303,7 +303,7 @@ func (proxy *Proxy) Start() chan error {
 	})
 
 	// Kubernetes readiness probe handler.
-	http.HandleFunc("/x8s-ready", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/k8s-ready", func(w http.ResponseWriter, r *http.Request) {
 		if proxy.ready {
 			log.WithFields(log.Fields{
 				"url": r.URL,

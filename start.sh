@@ -3,7 +3,7 @@
 IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
 
-echo "
+printf "
 Starting the k8s-proxy service.
 
 The \`k8s-proxy\` service will serve all traffic on a specified port.
@@ -34,13 +34,13 @@ With labels you can be sure that traffic to http://api.myapp.any.host.here
 will be routed to your service, but https://api.myapp.any.host.here (ssl)
 traffic won't.
 
-Not for production use. Make sure you're configured for the correct
-environment...
-"
-count=5
-while [ "0" -lt "$count" ]; do
-    printf "."; ((count-=1)); sleep 1
+Not for production use. Make sure your \`kubectl\` cli is configured for
+the intended environment"
+count=0
+while [ "10" -gt "$count" ]; do
+    printf "."; ((count+=1)); sleep 1
 done
+printf "\n\n"
 
 if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     echo "building image..."
@@ -53,8 +53,9 @@ if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
 fi
 
 echo "removing k8s-proxy deployment and service..."
-kubectl delete deploy  k8s-proxy &> /dev/null
+kubectl delete deploy k8s-proxy &> /dev/null
 kubectl delete service k8s-proxy &> /dev/null
+kubectl delete ingress k8s-proxy &> /dev/null
 
 echo "applying k8s-proxy deployment and service..."
 kubectl apply -f k8s-proxy.yml > /dev/null
