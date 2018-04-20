@@ -54,7 +54,7 @@ Using labels you can be sure that traffic to http://api.myapp.any.host.here and 
 
 ## Getting started
 
-Start or restart the proxy service. Listens on port 80.
+Start or restart the proxy service. Listens on ports `80` and `443`.
 ```
 ./start.sh
 ```
