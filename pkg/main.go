@@ -12,11 +12,6 @@ import (
 )
 
 /*
-DEFAULTSVC defines the default k8s service.
-*/
-var DEFAULTSVC string
-
-/*
 DEV assumes a dev environment if true.
 */
 var DEV bool
@@ -39,12 +34,6 @@ var TIMEOUT int
 
 func init() {
 	var err error
-
-	DEFAULTSVC = os.Getenv("DEFAULTSVC")
-	if "" == DEFAULTSVC {
-		log.Warnf("DEFAULTSVC env not set, defaulting to 'kubernetes'")
-		DEFAULTSVC = "kubernetes"
-	}
 
 	if "1" == os.Getenv("DEV") || "true" == os.Getenv("DEV") {
 		DEV = true
@@ -85,7 +74,6 @@ func init() {
 func main() {
 
 	proxy, err := proxy.New(
-		DEFAULTSVC,
 		DEV,
 		PORT,
 		SECUREPORT,
