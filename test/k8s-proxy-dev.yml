@@ -64,13 +64,7 @@ spec:
                     env:
                         -   name: LOG_LEVEL
                             value: debug
-                        -   name: DEFAULTSVC
-                            value: "kubernetes"
                         -   name: DEV
-                            value: "true"
-                        -   name: LIVENESS_PROBE
-                            value: "true"
-                        -   name: READINESS_PROBE
                             value: "true"
                         -   name: PORT
                             value: "80"
