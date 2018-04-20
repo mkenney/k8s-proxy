@@ -41,6 +41,7 @@ count=5
 while [ "0" -lt "$count" ]; do
     printf "."; ((count-=1)); sleep 1
 done
+printf "\n"
 
 if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     echo "building image..."
