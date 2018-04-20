@@ -44,7 +44,7 @@ func init() {
 		</style>
 	</head>
 	<body>
-		<h1>502 Bad Gateway</h1>
+		<h1>⎈ 502 Bad Gateway</h1>
 		<p>
 			The requested service could not be found.
 		</p>
@@ -81,7 +81,7 @@ func init() {
 		</style>
 	</head>
 	<body>
-		<h1>503 Service Unavailable</h1>
+		<h1>⎈ 503 Service Unavailable</h1>
 		<p>
 			The requested service did not respond.
 		</p>

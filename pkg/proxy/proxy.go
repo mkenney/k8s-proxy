@@ -21,7 +21,6 @@ instance. If an error is generated while initializing the kubernetes
 service scanner an error will be returned.
 */
 func New(
-	defaultService string,
 	dev bool,
 	port int,
 	securePort int,
@@ -29,17 +28,13 @@ func New(
 ) (*Proxy, error) {
 	var err error
 	proxy := &Proxy{
-		Default:    defaultService,
 		Dev:        dev,
 		Port:       port,
 		SecurePort: securePort,
 		Timeout:    timeout,
 
-		readyCh: make(chan struct{}, 2),
-		serviceMap: ServiceMap{
-			"http":  make(map[string]*Service),
-			"https": make(map[string]*Service),
-		},
+		readyCh:    make(chan struct{}, 2),
+		serviceMap: make(map[string]*Service),
 	}
 	proxy.K8s, err = k8s.New()
 	return proxy, err
@@ -50,7 +45,6 @@ Proxy holds configuration data and methods for running the kubernetes
 proxy service.
 */
 type Proxy struct {
-	Default    string
 	Dev        bool
 	K8s        *k8s.K8S
 	Port       int
@@ -60,7 +54,7 @@ type Proxy struct {
 	ready      bool
 	readyCh    chan struct{}
 	svcMapMux  sync.Mutex
-	serviceMap ServiceMap
+	serviceMap map[string]*Service
 }
 
 /*
@@ -74,11 +68,6 @@ type Service struct {
 }
 
 /*
-ServiceMap is a map of k8s service name to proxy description.
-*/
-type ServiceMap map[string]map[string]*Service
-
-/*
 AddService adds a service to the passthrough map.
 */
 func (proxy *Proxy) AddService(service apiv1.Service) error {
@@ -87,14 +76,6 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 	}
 	for _, port := range service.Spec.Ports {
 		if port.Port >= 80 && "TCP" == port.Protocol {
-
-			protocol := "http"
-			if 443 == port.Port {
-				protocol = "https"
-			}
-			if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
-				protocol = strings.ToLower(service.Labels["k8s-proxy-protocol"])
-			}
 
 			domain := service.Name
 			if _, ok := service.Labels["k8s-proxy-domain"]; ok {
@@ -113,7 +94,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 			}).Info("registering service")
 
 			proxy.svcMapMux.Lock()
-			proxy.serviceMap[protocol][domain] = &Service{
+			proxy.serviceMap[domain] = &Service{
 				Name:     service.Name,
 				Port:     port.Port,
 				Protocol: string(port.Protocol),
@@ -138,13 +119,8 @@ Pass passes HTTP traffic through to the requested service.
 func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	protocol := "http"
-	if nil != r.TLS {
-		protocol = "https"
-	}
-
-	service := proxy.Default
-	for k := range proxy.serviceMap[protocol] {
+	service := ""
+	for k := range proxy.serviceMap {
 		if strings.HasPrefix(r.Host, k+".") {
 			service = k
 			break
@@ -152,7 +128,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find the correct service proxy and route the traffic.
-	if svc, ok := proxy.serviceMap[protocol][service]; ok {
+	if svc, ok := proxy.serviceMap[service]; ok {
 		log.WithFields(log.Fields{
 			"endpoint": svc.Proxy.URL,
 			"referer":  r.Referer(),
@@ -204,6 +180,10 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else {
+		protocol := "http"
+		if nil != r.TLS {
+			protocol = "https"
+		}
 		log.WithFields(log.Fields{
 			"url": fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
 		}).Warn("request failed, no matching service found")
@@ -232,7 +212,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 			}{
 				Host:     r.Host,
 				Scheme:   strings.ToUpper(protocol),
-				Services: proxy.serviceMap[protocol],
+				Services: proxy.serviceMap,
 			})
 			if nil != err {
 				log.Error(err)
@@ -248,28 +228,18 @@ RemoveService removes a service from the map.
 */
 func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 	for _, port := range service.Spec.Ports {
-		protocol := "http"
-		if 443 == port.Port {
-			protocol = "https"
-		}
-		if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
-			protocol = service.Labels["k8s-proxy-protocol"]
-		}
-
 		domain := service.Name
 		if _, ok := service.Labels["k8s-proxy-domain"]; ok {
 			domain = service.Labels["k8s-proxy-domain"]
 		}
 
-		log.WithFields(log.Fields{
-			"name":     domain,
-			"port":     port.Port,
-			"protocol": protocol,
-		}).Info("removing service")
-
-		if _, ok := proxy.serviceMap[protocol][domain]; ok {
+		if _, ok := proxy.serviceMap[domain]; ok {
+			log.WithFields(log.Fields{
+				"name": service.Name,
+				"port": port.Port,
+			}).Info("removing service")
 			proxy.svcMapMux.Lock()
-			delete(proxy.serviceMap[protocol], domain)
+			delete(proxy.serviceMap, domain)
 			proxy.svcMapMux.Unlock()
 		}
 	}
@@ -299,7 +269,7 @@ func (proxy *Proxy) Start() chan error {
 	}()
 
 	// Kubernetes liveness probe handler.
-	http.HandleFunc("/x8s-alive", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/k8s-alive", func(w http.ResponseWriter, r *http.Request) {
 		log.WithFields(log.Fields{
 			"url": r.URL,
 		}).Infof("liveness probe OK")
@@ -307,7 +277,7 @@ func (proxy *Proxy) Start() chan error {
 	})
 
 	// Kubernetes readiness probe handler.
-	http.HandleFunc("/x8s-ready", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/k8s-ready", func(w http.ResponseWriter, r *http.Request) {
 		if proxy.ready {
 			log.WithFields(log.Fields{
 				"url": r.URL,
@@ -356,8 +326,8 @@ func (proxy *Proxy) Start() chan error {
 		}).Infof("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
 			fmt.Sprintf(":%d", proxy.SecurePort),
-			"/go/src/github.com/mkenney/k8s-proxy/server.crt",
-			"/go/src/github.com/mkenney/k8s-proxy/server.key",
+			"/go/src/github.com/mkenney/k8s-proxy/k8s-proxy.crt",
+			"/go/src/github.com/mkenney/k8s-proxy/k8s-proxy.key",
 			nil,
 		)
 	}()
@@ -402,12 +372,10 @@ hostToService takes in a host string (eg. service.example.com) and
 matches it to a running kubernetes service.
 */
 func (proxy *Proxy) hostToService(host string) string {
-	for _, scheme := range []string{"http", "https"} {
-		for k := range proxy.serviceMap[scheme] {
-			if strings.HasPrefix(host, k+".") {
-				return k
-			}
+	for k := range proxy.serviceMap {
+		if strings.HasPrefix(host, k+".") {
+			return k
 		}
 	}
-	return proxy.Default
+	return ""
 }

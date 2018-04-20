@@ -3,7 +3,7 @@
 IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
 
-echo "
+printf "
 Starting proxy and test services.
 
 This script will build the binary from the current source and start (or
@@ -43,14 +43,13 @@ accessed. Each service represents a different test case:
     any other non-existant service) should immediately result in a 502
     error.
 
-Not for production use. Make sure you're configured for the correct
-environment...
-"
-count=5
-while [ "0" -lt "$count" ]; do
-    printf "."; ((count-=1)); sleep 1
+Not for production use. Make sure your \`kubectl\` cli is configured for
+the intended environment"
+count=0
+while [ "10" -gt "$count" ]; do
+    printf "."; ((count+=1)); sleep 1
 done
-printf "\n"
+printf "\n\n"
 
 workdir=$(pwd)
 
@@ -86,13 +85,15 @@ echo "removing k8s-proxy-test-3 deployment and service..."
 kubectl delete service k8s-proxy-test-3 &> /dev/null
 
 echo "removing k8s-proxy deployment and service..."
-kubectl delete deploy  k8s-proxy &> /dev/null
+kubectl delete deploy k8s-proxy &> /dev/null
 kubectl delete service k8s-proxy &> /dev/null
 kubectl delete ingress k8s-proxy &> /dev/null
-kubectl delete ingress k8s-proxy-ssl &> /dev/null
 
 cd $workdir
 echo
+echo "applying k8s-proxy deployment and service..."
+cat k8s-proxy-dev.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+
 echo "applying k8s-proxy-test-1 deployment and service..."
 cat k8s-proxy-test-1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
@@ -101,9 +102,6 @@ cat k8s-proxy-test-2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
 echo "applying k8s-proxy-test-3 deployment and service..."
 cat k8s-proxy-test-3.yml | kubectl create -f - > /dev/null
-
-echo "applying k8s-proxy deployment and service..."
-cat k8s-proxy-dev.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
 pod=
 printf "\n"

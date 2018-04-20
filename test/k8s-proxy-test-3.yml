@@ -8,7 +8,7 @@ spec:
         app: k8s-proxy-test-3
     type: LoadBalancer
     ports:
-        -   port: 81
+        -   port: 80
             targetPort: 80
             protocol: TCP
             name: http

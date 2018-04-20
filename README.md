@@ -5,17 +5,10 @@
         <a href="https://github.com/mkenney/k8s-proxy/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mkenney/k8s-proxy.svg" alt="MIT License"></a>
     </td>
     <td rowspan="7">
-        This project provides a very simple proxy service for easily working on multiple projects in a development environment in <a href="https://kubernetes.io/" target="_blank">Kubernetes</a>.
+        This project provides a simple proxy service for easily working with multiple web services in a development environment in <a href="https://kubernetes.io/" target="_blank">Kubernetes</a>.
         <br><br>
         <a href="https://hub.docker.com/r/mkenney/k8s-proxy/">Docker image here</a>.
         <br><br>
-		The <a href="https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml"><code>k8s-proxy.yml</code></a> file defines a service listening on port <code>80</code> and an associated deployment. The deployment runs a single pod with minimal resource requirements (they could probably be lower) that accesses the <code>kubernetes</code> API in the cluster it's running in and proxies all traffic on port 80 to a running service with a defined TCP port who's name is a prefix matching the requested domain.
-        <br><br>
-        You may also define the matching string using labels in the service for the hostname and HTTP protocol. For example: <pre>metadata:
-    labels:
-        k8s-proxy-protocol: http
-        k8s-proxy-domain: myservice.somedomain</pre></div>
-		SSL passthrough is still a work in progress.
     </td>
 </tr><tr>
     <td>
@@ -43,7 +36,25 @@
     </td>
 </tr></tbody></table>
 
-Start or restart the proxy service. Listens on port 80.
+The `k8s-proxy` service will serve all traffic on ports `80` and `443`. SSL traffic on port `443` is encrypted using a self-signed certificate, with all of the associated issues. The exposed ports are configurable in the [`k8s-proxy.yml`](https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml) file. You must set both the exposed ports in the deployment and service, as well as the PORT and SECUREPORT environment variables in the deployment. Exposing the ports allows them to receive traffic and defining the environment variables tells the proxy service which ports to listen on.
+
+The proxy will route traffic by matching the domain being requested to a service running in the cluster. By default, this is done based on the service name. For example a request for http://service1.any.host.here would be routed to a service named 'service1', if it exists.
+
+That is convenient but can be cumbersom in practice, so instead you can define the name the proxy uses to match a request to a service by applying labels to the service:
+```yaml
+kind: Service
+    apiVersion: v1
+    metadata:
+        name: ui_backend_service
+        labels:
+            -   k8s-proxy-domain: api.myapp
+                k8s-proxy-protocol: HTTP
+```
+Using labels you can be sure that traffic to http://api.myapp.any.host.here and http://api.myapp.any.host.here (ssl) will be routed to your service.
+
+## Getting started
+
+Start or restart the proxy service. Listens on ports `80` and `443`.
 ```
 ./start.sh
 ```
