@@ -137,6 +137,9 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		proxyWriter := &ResponseWriter{200, make([]byte, 0), http.Header{}}
 		svc.Proxy.ServeHTTP(proxyWriter, r)
 
+		for k, v := range proxyWriter.Header() {
+			w.Header().Set(k, v[0])
+		}
 		if 502 == proxyWriter.Status() {
 			log.WithFields(log.Fields{
 				"status": http.StatusText(proxyWriter.Status()),
@@ -175,10 +178,6 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			w.WriteHeader(proxyWriter.Status())
-		}
-
-		for k, v := range proxyWriter.Header() {
-			w.Header()[k] = v
 		}
 		w.Write(proxyWriter.data)
 
