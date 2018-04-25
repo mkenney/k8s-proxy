@@ -9,8 +9,9 @@ ResponseWriter wraps http.ResponseWriter instances to add a Status
 method.
 */
 type ResponseWriter struct {
-	writer http.ResponseWriter
 	status int
+	data   []byte
+	header http.Header
 }
 
 /*
@@ -24,14 +25,15 @@ func (w *ResponseWriter) Status() int {
 Header implements http.ResponseWriter
 */
 func (w *ResponseWriter) Header() http.Header {
-	return w.writer.Header()
+	return w.header
 }
 
 /*
 Write implements http.ResponseWriter
 */
 func (w *ResponseWriter) Write(data []byte) (int, error) {
-	return w.writer.Write(data)
+	w.data = append(w.data, data...)
+	return len(data), nil
 }
 
 /*
@@ -39,5 +41,4 @@ WriteHeader implements http.ResponseWriter
 */
 func (w *ResponseWriter) WriteHeader(code int) {
 	w.status = code
-	//w.writer.WriteHeader(code)
 }
