@@ -3,6 +3,26 @@
 IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
 
+k8s_context=$(kubectl config view -o=jsonpath='{.current-context}')
+k8s_namespace=$(kubectl config view -o=jsonpath="{.contexts[?(@.name==\"$kcontext\")].context.namespace}")
+if [ "" = "$k8s_namespace" ]; then
+    k8s_namespace="default"
+fi
+
+printf "
+This script will start the kubernetes proxy service using the \`kubectl apply\`
+command. Make sure you are configured for the correct environment.
+
+Current context:   $k8s_context
+Current namespace: $k8s_namespace
+
+"
+read -p "Do you want to continue? [y/N]: " EXECUTE
+
+if [ "y" != "$EXECUTE" ] && [ "Y" != "$EXECUTE" ]; then
+    exit 0
+fi
+
 printf "
 Starting proxy and test services.
 
@@ -43,16 +63,9 @@ accessed. Each service represents a different test case:
     any other non-existant service) should immediately result in a 502
     error.
 
-Not for production use. Make sure your \`kubectl\` cli is configured for
-the intended environment"
-count=0
-while [ "10" -gt "$count" ]; do
-    printf "."; ((count+=1)); sleep 1
-done
-printf "\n\n"
+"
 
 workdir=$(pwd)
-
 cd $workdir/..
 if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     echo "building image..."

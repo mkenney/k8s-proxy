@@ -123,7 +123,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "d6449816ce06963d9d136eee5a56fca5b0616e7e"
+  revision = "2b6c08872f4b66da917bb4ce98df4f0307330f78"
 
 [[projects]]
   branch = "master"
@@ -135,7 +135,7 @@
     "idna",
     "lex/httplex"
   ]
-  revision = "d41e8174641f662c5a2d1c7a5f9e828788eb8706"
+  revision = "5f9ae10d9af5b1c89ae6904293b14b064d4ada23"
 
 [[projects]]
   branch = "master"
@@ -144,7 +144,7 @@
     "unix",
     "windows"
   ]
-  revision = "b126b21c05a91c856b027c16779c12e3bf236954"
+  revision = "79b0c6888797020a994db17c8510466c72fe75d9"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -212,7 +212,7 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "e68f57a7c005317989301f4e8eb654f01f08eb05"
+  revision = "1c973d529bdf4c4f349357ca665fb8e1d13e2d0d"
 
 [[projects]]
   branch = "master"
@@ -254,7 +254,7 @@
     "pkg/watch",
     "third_party/forked/golang/reflect"
   ]
-  revision = "800fcb029b488923f14852306f0c98c11d0f360c"
+  revision = "73aa818bbacf185a03468ddc170fb275763dec3d"
 
 [[projects]]
   name = "k8s.io/client-go"
@@ -307,6 +307,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0a5af5c9d8a6d81fe51a796480ea24b24f8b013386528bd30dbd5d88c47efc4d"
+  inputs-digest = "93780ff84f62e7901fd07e9e7b1717833b76c616a80bdcc4307a7349861467fc"
   solver-name = "gps-cdcl"
   solver-version = 1

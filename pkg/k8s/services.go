@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -22,34 +21,31 @@ type ChangeSet struct {
 Services maintains an up to date list of available kubernetes services.
 */
 type Services struct {
-	client    corev1.ServiceInterface
-	interrupt chan bool
-
-	svcMapMux sync.Mutex
-	svcMap    chan (map[string]apiv1.Service)
+	Client    corev1.ServiceInterface
+	Interrupt chan bool
+	SvcMap    chan (map[string]apiv1.Service)
 }
 
 /*
 Map returns the current map of running services.
 */
 func (services *Services) Map() map[string]apiv1.Service {
-	return <-services.svcMap
+	return <-services.SvcMap
 }
 
 /*
 Stop ends the serviceWatcher goroutine.
 */
 func (services *Services) Stop() {
-	services.interrupt <- true && <-services.interrupt
+	services.Interrupt <- true && <-services.Interrupt
 }
 
 /*
-Watch starts the service watcher goroutine. frequency is the number of
-seconds to wait between API update requests. Must be greater than 0.
-Default value is 5.
+Watch starts the service watcher goroutine. frequency is the duration to
+wait between API update requests. Must be greater than 0.
 */
 func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
-	services.interrupt = make(chan bool)
+	services.Interrupt = make(chan bool)
 	changeSetCh := make(chan ChangeSet)
 	readyCh := make(chan bool)
 
@@ -61,9 +57,9 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 		for {
 			select {
 			// Stop watching for changes.
-			case <-services.interrupt:
+			case <-services.Interrupt:
 				defer close(changeSetCh)
-				defer close(services.interrupt)
+				defer close(services.Interrupt)
 				break
 
 			default:
@@ -71,7 +67,7 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 				// ready.
 				if len(serviceMap) > 0 {
 					select {
-					case services.svcMap <- serviceMap:
+					case services.SvcMap <- serviceMap:
 					case <-time.After(delay - time.Now().Sub(last)):
 					}
 				}
@@ -82,7 +78,7 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 					last = time.Now()
 
 					// Fetch the service list from the k8s API
-					svcs, err := services.client.List(metav1.ListOptions{})
+					svcs, err := services.Client.List(metav1.ListOptions{})
 					if nil != err {
 						log.Error(err)
 						continue
@@ -98,7 +94,7 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 					changeSet := diffServices(serviceMap, svcMap)
 					serviceMap = svcMap
 
-					// Allow the launching routine to continue once the
+					// Allow the parent routine to continue once the
 					// initial data set has been loaded.
 					if nil != readyCh && len(serviceMap) > 0 {
 						readyCh <- true

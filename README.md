@@ -45,12 +45,11 @@ That is convenient but can be cumbersom in practice, so instead you can define t
 kind: Service
     apiVersion: v1
     metadata:
-        name: ui_backend_service
+        name: myapp_api_service
         labels:
-            -   k8s-proxy-domain: api.myapp
-                k8s-proxy-protocol: HTTP
+            k8s-proxy-domain: api.myapp
 ```
-Using labels you can be sure that traffic to http://api.myapp.any.host.here and http://api.myapp.any.host.here (ssl) will be routed to your service.
+Using labels you can be sure that traffic to http://api.myapp.hostname and https://api.myapp.hostname will be routed to your service.
 
 ## Getting started
 
