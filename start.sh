@@ -3,16 +3,37 @@
 IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
 
+k8s_context=$(kubectl config view -o=jsonpath='{.current-context}')
+k8s_namespace=$(kubectl config view -o=jsonpath="{.contexts[?(@.name==\"$kcontext\")].context.namespace}")
+if [ "" = "$k8s_namespace" ]; then
+    k8s_namespace="default"
+fi
+
+printf "
+This script will start the kubernetes proxy service using the \`kubectl apply\`
+command. Make sure you are configured for the correct environment.
+
+Current context:   $k8s_context
+Current namespace: $k8s_namespace
+
+"
+read -p "Do you want to continue? [y/N]: " EXECUTE
+
+if [ "y" != "$EXECUTE" ] && [ "Y" != "$EXECUTE" ]; then
+    exit 0
+fi
+
 printf "
 Starting the k8s-proxy service.
 
-The \`k8s-proxy\` service will serve all traffic on a specified port.
-Ports are not configurable via this script but can be changed in
-\`k8s-proxy.yml\`. You must set both the exposed ports in the deployment
-and service as well as the PORT and SECUREPORT environment variables in
-the deployment. Exposing the ports allows them to receive traffic and
-defining the environment variables tells the proxy serice which ports
-to listen on.
+The \`k8s-proxy\` service will serve all traffic on ports 80 and 443.
+SSL traffic on port 443 is encrypted using a self-signed certificate
+with the associated issues. Ports are not configurable via this
+script but can be changed in \`k8s-proxy.yml\`. You must set both the
+exposed ports in the deployment and service as well as the PORT and
+SECUREPORT environment variables in the deployment. Exposing the ports
+allows them to receive traffic and defining the environment variables
+tells the proxy serice which ports to listen on.
 
 The proxy will route traffic by matching the domain being requested to
 a service running in the cluster. By default, this is done based on the
@@ -35,12 +56,9 @@ will be routed to your service, but https://api.myapp.any.host.here (ssl)
 traffic won't.
 
 Not for production use. Make sure your \`kubectl\` cli is configured for
-the intended environment"
-count=0
-while [ "10" -gt "$count" ]; do
-    printf "."; ((count+=1)); sleep 1
-done
-printf "\n\n"
+the intended environment
+
+"
 
 if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     echo "building image..."
