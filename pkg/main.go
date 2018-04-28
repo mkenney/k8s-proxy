@@ -1,14 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
+	"time"
 
 	logfmt "github.com/mkenney/go-log-fmt"
 	"github.com/mkenney/k8s-proxy/pkg/proxy"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 /*
@@ -93,9 +96,36 @@ func main() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c)
 		sig := <-c
-		log.Infof("'%s' signal received, shutting down proxy", sig)
+		log.Warnf("'%s' signal received, shutting down proxy", sig)
 		proxy.Stop()
+		// Sharing proxy.Start()'s error channel.
 		errChan <- fmt.Errorf("'%s' signal received, proxy shut down", sig)
+	}()
+
+	go func() {
+		list, _ := proxy.K8S.CoreV1().Endpoints("").List(metav1.ListOptions{})
+		time.Sleep(5 * time.Second)
+		for _, item := range list.Items {
+			for _, subset := range item.Subsets {
+				tmp, _ := json.MarshalIndent(subset, "", "    ")
+				log.Debugf("++++++++++++++++++\n%s - %s\n++++++++++++++++", item.Name, string(tmp))
+			}
+		}
+		//tmp, _ := json.MarshalIndent(list, "", "    ")
+
+		//list, _ := proxy.K8s.Ext.Ingresses("").List(metav1.ListOptions{})
+		////item := list.Items[0]
+		////fmt.Println(item.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Path)
+		//tmp, _ := json.MarshalIndent(list, "", "    ")
+
+		//		log.Debugf(`
+		//
+		//==========================================
+		//%s
+		//%+v
+		//=======================================
+		//
+		//`, string(tmp), list)
 	}()
 
 	log.Fatal(<-errChan)

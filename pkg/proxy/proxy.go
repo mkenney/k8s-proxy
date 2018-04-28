@@ -12,6 +12,8 @@ import (
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
 	log "github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	//"rsc.io/letsencrypt"
 )
 
@@ -27,16 +29,34 @@ func New(
 	timeout int,
 ) (*Proxy, error) {
 	var err error
+
+	// create the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// create the client
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	proxy := &Proxy{
-		Dev:        dev,
-		Port:       port,
+		Dev:  dev,
+		K8S:  client,
+		Port: port,
+		Services: &k8s.Services{
+			Client:    client.CoreV1().Services(""),
+			Interrupt: make(chan bool),
+			SvcMap:    make(chan map[string]apiv1.Service),
+		},
 		SecurePort: securePort,
 		Timeout:    timeout,
 
 		readyCh:    make(chan struct{}, 2),
 		serviceMap: make(map[string]*Service),
 	}
-	proxy.K8s, err = k8s.New()
 	return proxy, err
 }
 
@@ -46,8 +66,9 @@ proxy service.
 */
 type Proxy struct {
 	Dev        bool
-	K8s        *k8s.K8S
+	K8S        *kubernetes.Clientset
 	Port       int
+	Services   *k8s.Services
 	SecurePort int
 	Timeout    int
 
@@ -109,7 +130,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 Map returns a map of the current kubernetes services.
 */
 func (proxy *Proxy) Map() map[string]apiv1.Service {
-	return proxy.K8s.Services.Map()
+	return proxy.Services.Map()
 }
 
 /*
@@ -260,7 +281,7 @@ func (proxy *Proxy) Start() chan error {
 
 	// Start the change watcher and the updater. This will block until
 	// data is available.
-	changes := proxy.K8s.Services.Watch(5)
+	changes := proxy.Services.Watch(5)
 	proxy.readyCh <- struct{}{}
 	close(proxy.readyCh)
 	go func() {
@@ -342,7 +363,7 @@ Stop causes the proxy to shutdown. In a kubernetes cluster this will
 cause the container to be restarted.
 */
 func (proxy *Proxy) Stop() {
-	proxy.K8s.Services.Stop()
+	proxy.Services.Stop()
 }
 
 /*
