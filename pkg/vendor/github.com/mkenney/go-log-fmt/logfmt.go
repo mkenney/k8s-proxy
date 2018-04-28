@@ -34,16 +34,12 @@ type TextFormat struct {
 }
 
 type logData struct {
-	Timestamp string      `json:"time"`
-	Level     string      `json:"level"`
-	Hostname  string      `json:"host"`
-	Caller    string      `json:"caller"`
-	Message   string      `json:"msg"`
-	Data      []dataField `json:"data"`
-}
-type dataField struct {
-	Key string
-	Msg string
+	Timestamp string            `json:"time"`
+	Level     string            `json:"level"`
+	Hostname  string            `json:"host"`
+	Caller    string            `json:"caller"`
+	Message   string            `json:"msg"`
+	Data      map[string]string `json:"data"`
 }
 
 /*
@@ -77,7 +73,7 @@ func (l *TextFormat) Format(entry *log.Entry) ([]byte, error) {
 }
 
 var textTemplate = template.Must(
-	template.New("log").Parse(`time="{{.Timestamp}}" host="{{.Hostname}}" level="{{.Level}}" caller="{{.Caller}}" msg="{{.Message}}" {{range $k, $v := .Data}}{{$v.Key}}="{{$v.Msg}}" {{end}}`),
+	template.New("log").Parse(`time="{{.Timestamp}}" host="{{.Hostname}}" level="{{.Level}}" caller="{{.Caller}}" msg="{{.Message}}" {{range $k, $v := .Data}}{{$k}}="{{$v}}" {{end}}`),
 )
 
 func getCaller() string {
@@ -108,7 +104,7 @@ func getData(entry *log.Entry) *logData {
 		Hostname:  os.Getenv("HOSTNAME"),
 		Caller:    getCaller(),
 		Message:   entry.Message,
-		Data:      make([]dataField, 0),
+		Data:      make(map[string]string),
 	}
 
 	keys := make([]string, 0)
@@ -116,11 +112,8 @@ func getData(entry *log.Entry) *logData {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	for _, v := range keys {
-		data.Data = append(data.Data, dataField{
-			Key: v,
-			Msg: fmt.Sprintf("%v", entry.Data[v]),
-		})
+	for k, v := range entry.Data {
+		data.Data[k] = fmt.Sprintf("%v", v)
 	}
 
 	return data

@@ -37,5 +37,5 @@ log.SetFormatter(&logfmt.JSONFormat{})
 
 Produces:
 ```json
-{"time":"2018-04-16T06:23:37.133Z","level":"info","host":"k8s-proxy-7b77bfd8bd-7xcvn","caller":"proxy.go:258 github.com/mkenney/k8s-proxy/pkg/proxy.(*Proxy).Start","msg":"starting kubernetes proxy","data":[{"Key":"port","Msg":"80"}]}
+{"time":"2018-04-16T06:23:37.133Z","level":"info","host":"k8s-proxy-7b77bfd8bd-7xcvn","caller":"proxy.go:258 github.com/mkenney/k8s-proxy/pkg/proxy.(*Proxy).Start","msg":"starting kubernetes proxy","data":{"port":"80"}}
 ```

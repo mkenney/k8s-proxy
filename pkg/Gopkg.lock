@@ -81,7 +81,7 @@
   branch = "master"
   name = "github.com/mkenney/go-log-fmt"
   packages = ["."]
-  revision = "5a5ddf516abe65431960830c0abcd60c41b2c348"
+  revision = "a7bb6bb9b096687400026fe9569ef0a9de8d7e3b"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
