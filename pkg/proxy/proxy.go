@@ -88,9 +88,8 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 			}
 
 			log.WithFields(log.Fields{
-				"name":     domain,
-				"port":     port.Port,
-				"protocol": protocol,
+				"name": domain,
+				"port": port.Port,
 			}).Info("registering service")
 
 			proxy.svcMapMux.Lock()
@@ -118,7 +117,6 @@ Pass passes HTTP traffic through to the requested service.
 */
 func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 	var err error
-
 	service := ""
 	for k := range proxy.serviceMap {
 		if strings.HasPrefix(r.Host, k+".") {
@@ -136,9 +134,12 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 		// Wrap the ResponseWriter it to intercept the resulting status
 		// code of the proxied request.
-		proxyWriter := &ResponseWriter{w, 200}
+		proxyWriter := &ResponseWriter{200, make([]byte, 0), http.Header{}}
 		svc.Proxy.ServeHTTP(proxyWriter, r)
 
+		for k, v := range proxyWriter.Header() {
+			w.Header().Set(k, v[0])
+		}
 		if 502 == proxyWriter.Status() {
 			log.WithFields(log.Fields{
 				"status": http.StatusText(proxyWriter.Status()),
@@ -153,8 +154,8 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
-				w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
 				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
 				_, err = w.Write(faviconBytes)
 				if nil != err {
 					log.Error(err)
@@ -178,6 +179,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.WriteHeader(proxyWriter.Status())
 		}
+		w.Write(proxyWriter.data)
 
 	} else {
 		protocol := "http"
@@ -196,8 +198,8 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
 			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
 			_, err = w.Write(faviconBytes)
 			if nil != err {
 				log.Error(err)
