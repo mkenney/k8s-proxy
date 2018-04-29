@@ -52,16 +52,7 @@ func NewReverseProxy(service apiv1.Service, port apiv1.ServicePort) (*ReversePro
 
 	// Don't validate SSL certificates
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	//rp.proxy.Transport = &http.Transport{
-	//	Proxy: http.ProxyFromEnvironment,
-	//	Dial: (&net.Dialer{
-	//		Timeout:   30 * time.Second,
-	//		KeepAlive: 30 * time.Second,
-	//	}).Dial,
-	//	TLSHandshakeTimeout: 10 * time.Second,
-	//	TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-	//}
-	//rp.proxy.Transport = &ConnectionErrorHandler{http.DefaultTransport}
+
 	rp.proxy.FlushInterval = 0
 
 	return rp, nil
@@ -92,20 +83,3 @@ ServeHTTP starts the HTTP server for this proxy.
 func (rp *ReverseProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rp.proxy.ServeHTTP(w, r)
 }
-
-//type ConnectionErrorHandler struct{ http.RoundTripper }
-//
-//func (c *ConnectionErrorHandler) RoundTrip(request *http.Request) (*http.Response, error) {
-//	resp, err := c.RoundTripper.RoundTrip(request)
-//	if err != nil {
-//		return nil, err
-//	}
-//	if _, ok := err.(*net.OpError); ok {
-//		r := &http.Response{
-//			StatusCode: http.StatusServiceUnavailable,
-//			Body:       ioutil.NopCloser(bytes.NewBufferString(fmt.Sprintf(HTTPErrs[503], request.URL.String()))),
-//		}
-//		return r, nil
-//	}
-//	return resp, err
-//}
