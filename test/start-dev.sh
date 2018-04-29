@@ -129,13 +129,13 @@ printf "\n"
 
 echo
 echo "Service:"
-echo "$(kubectl get service | egrep '(k8s-proxy)|(NAME)')"
+echo "$(kubectl get service | egrep '(k8s-proxy)|(NAME)' | grep -v 'k8s-proxy-test')"
 echo
 echo "Deployment:"
-echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)')"
+echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)' | grep -v 'k8s-proxy-test')"
 echo
 echo "Pods:"
-echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
+echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating | grep -v 'k8s-proxy-test')"
 echo
 
 if [ "" = "$pod" ]; then
@@ -144,6 +144,6 @@ if [ "" = "$pod" ]; then
 fi
 
 # hide the readiness/liveness probe noise...
-echo "Executing \`kubectl logs -f $pod | grep -v 'probe OK'\`..."
+echo "kubectl logs -f $pod | grep -v 'probe OK'"
 echo
 kubectl logs -f $pod | grep -v 'probe OK'

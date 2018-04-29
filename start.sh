@@ -27,36 +27,15 @@ printf "
 Starting the k8s-proxy service.
 
 The \`k8s-proxy\` service will serve all traffic on ports 80 and 443.
-SSL traffic on port 443 is encrypted using a self-signed certificate
-with the associated issues. Ports are not configurable via this
-script but can be changed in \`k8s-proxy.yml\`. You must set both the
-exposed ports in the deployment and service as well as the PORT and
-SECUREPORT environment variables in the deployment. Exposing the ports
-allows them to receive traffic and defining the environment variables
-tells the proxy serice which ports to listen on.
+SSL traffic is terminated using a self-signed certificate with the
+associated issues. Ports are not configurable via this script but can be
+changed in \`k8s-proxy.yml\`. You must set both the exposed ports in the
+deployment and service as well as the PORT and SECUREPORT environment
+variables in the deployment. Exposing the ports allows them to receive
+traffic and defining the environment variables tells the proxy serice
+which ports to listen on.
 
-The proxy will route traffic by matching the domain being requested to
-a service running in the cluster. By default, this is done based on the
-service name. For example a request for http://service1.any.host.here
-would be routed to a service named 'service1', if it exists.
-
-That's convenient but can be cumbersom in practice however, you may also
-apply labels to the service to be used by the proxy:
-
-    kind: Service
-    apiVersion: v1
-    metadata:
-        name: ui_backend_service
-        labels:
-            -   k8s-proxy-domain: api.myapp
-                k8s-proxy-protocol: HTTP
-
-With labels you can be sure that traffic to http://api.myapp.any.host.here
-will be routed to your service, but https://api.myapp.any.host.here (ssl)
-traffic won't.
-
-Not for production use. Make sure your \`kubectl\` cli is configured for
-the intended environment
+Not for production use.
 
 "
 
@@ -80,12 +59,12 @@ kubectl apply -f k8s-proxy.yml > /dev/null
 
 pod=
 printf "\n"
-count=0
-while [ ! -n "$pod" ] && [ "60" -gt "$count" ]; do
+trycount=0
+while [ ! -n "$pod" ] && [ "60" -gt "$trycount" ]; do
     sleep 1
-    pod=$(kubectl get po | grep k8s-proxy | grep -i running | grep '1/1' | awk '{print $1}')
+    pod=$(kubectl get po | grep 'k8s-proxy' | grep -i running | grep '1/1' | grep -v 'k8s-proxy-test' | awk '{print $1}')
     printf "."
-    ((count+=1))
+    ((trycount+=1))
 done
 printf "\n"
 
@@ -99,6 +78,11 @@ echo
 echo "Pods:"
 echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating)"
 echo
+
+if [ "" = "$pod" ]; then
+    echo "Timed out waiting for pod to be ready"
+    exit 0
+fi
 
 # hide the readiness/liveness probe noise...
 echo "kubectl logs -f $pod | grep -v 'probe OK'"

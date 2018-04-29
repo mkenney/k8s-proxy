@@ -12,19 +12,14 @@ import (
 )
 
 /*
-DEV assumes a dev environment if true.
-*/
-var DEV bool
-
-/*
 PORT defines the exposed k8s-proxy port.
 */
 var PORT int
 
 /*
-SECUREPORT defines the exposed k8s-proxy SSL port.
+SSLPORT defines the exposed k8s-proxy SSL port.
 */
-var SECUREPORT int
+var SSLPORT int
 
 /*
 TIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
@@ -35,20 +30,16 @@ var TIMEOUT int
 func init() {
 	var err error
 
-	if "1" == os.Getenv("DEV") || "true" == os.Getenv("DEV") {
-		DEV = true
-	}
-
 	PORT, err = strconv.Atoi(os.Getenv("PORT"))
 	if nil != err || PORT > 65535 {
 		log.Warnf("invalid PORT env '%d', defaulting to port 80", PORT)
 		PORT = 80
 	}
 
-	SECUREPORT, err = strconv.Atoi(os.Getenv("SECUREPORT"))
-	if nil != err || SECUREPORT > 65535 {
-		log.Warnf("invalid SECUREPORT env '%d', defaulting to port 443", SECUREPORT)
-		SECUREPORT = 443
+	SSLPORT, err = strconv.Atoi(os.Getenv("SSLPORT"))
+	if nil != err || SSLPORT > 65535 {
+		log.Warnf("invalid SSLPORT env '%d', defaulting to port 443", SSLPORT)
+		SSLPORT = 443
 	}
 
 	TIMEOUT, err = strconv.Atoi(os.Getenv("TIMEOUT"))
@@ -74,9 +65,8 @@ func init() {
 func main() {
 
 	proxy, err := proxy.New(
-		DEV,
 		PORT,
-		SECUREPORT,
+		SSLPORT,
 		TIMEOUT,
 	)
 	if nil != err {

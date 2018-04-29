@@ -62,11 +62,9 @@ spec:
                     env:
                         -   name: LOG_LEVEL
                             value: info
-                        -   name: DEV
-                            value: "false"
                         -   name: PORT
                             value: "80"
-                        -   name: SECUREPORT
+                        -   name: SSLPORT
                             value: "443"
                         -   name: TIMEOUT
                             value: "10"

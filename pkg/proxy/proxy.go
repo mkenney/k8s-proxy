@@ -21,14 +21,12 @@ instance. If an error is generated while initializing the kubernetes
 service scanner an error will be returned.
 */
 func New(
-	dev bool,
 	port int,
 	securePort int,
 	timeout int,
 ) (*Proxy, error) {
 	var err error
 	proxy := &Proxy{
-		Dev:        dev,
 		Port:       port,
 		SecurePort: securePort,
 		Timeout:    timeout,
@@ -45,7 +43,6 @@ Proxy holds configuration data and methods for running the kubernetes
 proxy service.
 */
 type Proxy struct {
-	Dev        bool
 	K8s        *k8s.K8S
 	Port       int
 	SecurePort int
@@ -163,7 +160,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 			} else {
 				w.WriteHeader(http.StatusServiceUnavailable)
-				err = HTTPErrs[503].Execute(w, struct {
+				err = HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
 					Reason string
 					Host   *url.URL
 					Msg    string
@@ -207,7 +204,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
-			err := HTTPErrs[502].Execute(w, struct {
+			err := HTTPErrs[http.StatusBadGateway].Execute(w, struct {
 				Host     string
 				Scheme   string
 				Services map[string]*Service
@@ -266,7 +263,6 @@ func (proxy *Proxy) Start() chan error {
 	go func() {
 		for delta := range changes {
 			proxy.UpdateServices(delta)
-			time.Sleep(5 * time.Second)
 		}
 	}()
 
@@ -291,7 +287,7 @@ func (proxy *Proxy) Start() chan error {
 			"url": r.URL,
 		}).Error("Service Unavailable - readiness probe failed")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		HTTPErrs[503].Execute(w, struct {
+		HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
 			Reason string
 			Host   string
 			Msg    string
@@ -328,8 +324,8 @@ func (proxy *Proxy) Start() chan error {
 		}).Infof("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
 			fmt.Sprintf(":%d", proxy.SecurePort),
-			"/go/src/github.com/mkenney/k8s-proxy/k8s-proxy.crt",
-			"/go/src/github.com/mkenney/k8s-proxy/k8s-proxy.key",
+			"/go/src/github.com/mkenney/k8s-proxy/assets/k8s-proxy.crt",
+			"/go/src/github.com/mkenney/k8s-proxy/assets/k8s-proxy.key",
 			nil,
 		)
 	}()
@@ -367,17 +363,4 @@ func (proxy *Proxy) Wait() {
 	}
 	<-proxy.readyCh
 	proxy.ready = true
-}
-
-/*
-hostToService takes in a host string (eg. service.example.com) and
-matches it to a running kubernetes service.
-*/
-func (proxy *Proxy) hostToService(host string) string {
-	for k := range proxy.serviceMap {
-		if strings.HasPrefix(host, k+".") {
-			return k
-		}
-	}
-	return ""
 }
