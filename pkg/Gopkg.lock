@@ -81,7 +81,7 @@
   branch = "master"
   name = "github.com/mkenney/go-log-fmt"
   packages = ["."]
-  revision = "a7bb6bb9b096687400026fe9569ef0a9de8d7e3b"
+  revision = "8f2649f115ae295ff09be06a4a67653c39310617"
 
 [[projects]]
   name = "github.com/modern-go/concurrent"
@@ -212,7 +212,7 @@
     "storage/v1alpha1",
     "storage/v1beta1"
   ]
-  revision = "e8df68e6b4a0eb60c21b9ba3a0b3e049bc041a31"
+  revision = "b7d77fa220f5130ec63c2ca7167dd9653449c64d"
 
 [[projects]]
   branch = "master"
@@ -222,7 +222,6 @@
     "pkg/api/meta",
     "pkg/api/resource",
     "pkg/apis/meta/v1",
-    "pkg/apis/meta/v1/unstructured",
     "pkg/apis/meta/v1beta1",
     "pkg/conversion",
     "pkg/conversion/queryparams",
@@ -254,7 +253,7 @@
     "pkg/watch",
     "third_party/forked/golang/reflect"
   ]
-  revision = "83d7ef28e0fad5ab58a504754c1def10404d297d"
+  revision = "b54e2be8c5c22805a615d4e84c3cbffcdca8654f"
 
 [[projects]]
   name = "k8s.io/client-go"
