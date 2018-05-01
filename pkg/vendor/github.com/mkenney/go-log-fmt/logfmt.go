@@ -37,9 +37,9 @@ type logData struct {
 	Timestamp string            `json:"time"`
 	Level     string            `json:"level"`
 	Hostname  string            `json:"host"`
-	Caller    string            `json:"caller"`
 	Message   string            `json:"msg"`
 	Data      map[string]string `json:"data"`
+	Caller    string            `json:"caller"`
 }
 
 /*
@@ -99,12 +99,12 @@ entry.
 */
 func getData(entry *log.Entry) *logData {
 	data := &logData{
-		Timestamp: entry.Time.Format(RFC3339Milli),
-		Level:     entry.Level.String(),
-		Hostname:  os.Getenv("HOSTNAME"),
 		Caller:    getCaller(),
-		Message:   entry.Message,
 		Data:      make(map[string]string),
+		Hostname:  os.Getenv("HOSTNAME"),
+		Level:     entry.Level.String(),
+		Message:   entry.Message,
+		Timestamp: entry.Time.Format(RFC3339Milli),
 	}
 
 	keys := make([]string, 0)
