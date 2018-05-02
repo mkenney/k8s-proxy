@@ -25,7 +25,7 @@ if [ "y" != "$EXECUTE" ] && [ "Y" != "$EXECUTE" ]; then
 fi
 
 printf "
-Starting proxy and test services.
+Starting the k8s-proxy and test services.
 
 This script will build the binary from the current source and start (or
 restart) the proxy service, mounting the binary into the container.

@@ -2,13 +2,14 @@ package proxy
 
 import (
 	"html/template"
+	"net/http"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
 
 /*
-HTTPErrs maps HTTP error codes to error pages.
+HTTPErrs maps HTTP error codes to HTNL error pages.
 */
 var HTTPErrs = map[int]*template.Template{}
 
@@ -25,10 +26,14 @@ func init() {
 		"ToLower": strings.ToLower,
 	}
 
-	HTTPErrs[502], err = template.New("502").Funcs(funcMap).Parse(`<!DOCTYPE html>
+	// Bad Gateway should be displayed when a request does not map to
+	// any known service.
+	statusText := http.StatusText(http.StatusBadGateway)
+	HTTPErrs[http.StatusBadGateway], err = template.
+		New(statusText).Funcs(funcMap).Parse(`<!DOCTYPE html>
 <html>
 	<head>
-		<title>Bad Gateway</title>
+		<title>` + statusText + `</title>
 		<style>
 			body {
 				font-family: courier;
@@ -65,10 +70,16 @@ func init() {
 </html>`)
 	check(err)
 
-	HTTPErrs[503], err = template.New("503").Funcs(funcMap).Parse(`<!DOCTYPE html>
+	// Service Unavailable should be displayed when a request is made
+	// before the service becomes ready, or when an attempt to direct
+	// a request to a known service that is malfunctioning in some way
+	// and times out.
+	statusText = http.StatusText(http.StatusServiceUnavailable)
+	HTTPErrs[http.StatusServiceUnavailable], err = template.
+		New(statusText).Funcs(funcMap).Parse(`<!DOCTYPE html>
 <html>
 	<head>
-		<title>Service Unavailable</title>
+		<title>` + statusText + `</title>
 		<style>
 			body {
 				font-family: courier;

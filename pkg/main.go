@@ -88,5 +88,10 @@ func main() {
 		errChan <- fmt.Errorf("'%s' signal received, proxy shut down", sig)
 	}()
 
-	log.Fatal(<-errChan)
+	for err := range errChan {
+		if nil != err {
+			proxy.Stop()
+			log.Fatal(err)
+		}
+	}
 }

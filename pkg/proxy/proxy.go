@@ -22,14 +22,14 @@ service scanner an error will be returned.
 */
 func New(
 	port int,
-	securePort int,
+	sslPort int,
 	timeout int,
 ) (*Proxy, error) {
 	var err error
 	proxy := &Proxy{
-		Port:       port,
-		SecurePort: securePort,
-		Timeout:    timeout,
+		Port:    port,
+		SSLPort: sslPort,
+		Timeout: timeout,
 
 		readyCh:    make(chan struct{}, 2),
 		serviceMap: make(map[string]*Service),
@@ -43,10 +43,10 @@ Proxy holds configuration data and methods for running the kubernetes
 proxy service.
 */
 type Proxy struct {
-	K8s        *k8s.K8S
-	Port       int
-	SecurePort int
-	Timeout    int
+	K8s     *k8s.K8S
+	Port    int
+	SSLPort int
+	Timeout int
 
 	ready      bool
 	readyCh    chan struct{}
@@ -85,8 +85,9 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 			}
 
 			log.WithFields(log.Fields{
-				"name": domain,
-				"port": port.Port,
+				"port":    port.Port,
+				"service": service.Name,
+				"url":     fmt.Sprintf("//%s.*", domain),
 			}).Info("registering service")
 
 			proxy.svcMapMux.Lock()
@@ -320,10 +321,10 @@ func (proxy *Proxy) Start() chan error {
 	// Start the SSL passthrough server.
 	go func() {
 		log.WithFields(log.Fields{
-			"port": proxy.SecurePort,
+			"port": proxy.SSLPort,
 		}).Infof("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
-			fmt.Sprintf(":%d", proxy.SecurePort),
+			fmt.Sprintf(":%d", proxy.SSLPort),
 			"/go/src/github.com/mkenney/k8s-proxy/assets/k8s-proxy.crt",
 			"/go/src/github.com/mkenney/k8s-proxy/assets/k8s-proxy.key",
 			nil,
