@@ -1,7 +1,7 @@
 # k8s-proxy
 
 <table><tbody><tr>
-    <td>
+    <td width="150" align="center">
         <a href="https://github.com/mkenney/k8s-proxy/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mkenney/k8s-proxy.svg" alt="MIT License"></a>
     </td>
     <td rowspan="7">
@@ -15,23 +15,23 @@
         <a href="https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#experimental"><img src="https://img.shields.io/badge/stability-experimental-orange.svg" alt="Experimental"></a>
     </td>
 </tr><tr>
-    <td width="150">
+    <td width="150" align="center">
         <a href="https://travis-ci.org/mkenney/k8s-proxy"><img src="https://travis-ci.org/mkenney/k8s-proxy.svg?branch=master" alt="Build status"></a>
     </td>
 </tr><tr>
-    <td width="150">
+    <td width="150" align="center">
         <a href="https://codecov.io/gh/mkenney/k8s-proxy"><img src="https://img.shields.io/codecov/c/github/mkenney/k8s-proxy/master.svg" alt="Coverage status"></a>
     </td>
 </tr><tr>
-    <td>
+    <td width="150" align="center">
         <a href="https://github.com/mkenney/k8s-proxy/issues"><img src="https://img.shields.io/github/issues-raw/mkenney/k8s-proxy.svg" alt="Github issues"></a>
     </td>
 </tr><tr>
-    <td>
+    <td width="150" align="center">
         <a href="https://goreportcard.com/report/github.com/mkenney/k8s-proxy"><img src="https://goreportcard.com/badge/github.com/mkenney/k8s-proxy" alt="Go Report Card"></a>
     </td>
 </tr><tr>
-    <td>
+    <td width="150" align="center">
         <a href="https://godoc.org/github.com/mkenney/k8s-proxy/pkg"><img src="https://godoc.org/github.com/mkenney/k8s-proxy/pkg?status.svg" alt="GoDoc"></a>
     </td>
 </tr></tbody></table>
