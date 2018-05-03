@@ -9,7 +9,7 @@ This project provides a simple proxy service for easily working with multiple we
         <a href="https://github.com/mkenney/k8s-proxy/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mkenney/k8s-proxy.svg" alt="MIT License"></a>
     </td>
     <td rowspan="7">
-        The `k8s-proxy` service will serve all traffic on ports `80` and `443`. SSL traffic on port `443` is encrypted using a self-signed certificate, with all of the associated issues. The exposed ports are configurable in the <a href="https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml">`k8s-proxy.yml`</a> file. You must set both the exposed ports in the deployment and service, as well as the PORT and SSLPORT environment variables in the deployment. Exposing the ports allows them to receive traffic and defining the environment variables tells the proxy service which ports to listen on.
+        The <code>k8s-proxy</code> service will serve all traffic on ports <code>80</code> and <code>443</code>. SSL traffic on port <code>443</code> is encrypted using a self-signed certificate, with all of the associated issues. The exposed ports are configurable in the <a href="https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml"><code>k8s-proxy.yml</code></a> file. You must set both the exposed ports in the deployment and service, as well as the <code>PORT</code> and <code>SSLPORT</code> environment variables in the deployment. Exposing the ports allows them to receive traffic and defining the environment variables tells the proxy service which ports to listen on.
     </td>
 </tr><tr>
     <td>
