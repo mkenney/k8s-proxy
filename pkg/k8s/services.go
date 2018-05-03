@@ -44,17 +44,15 @@ func (services *Services) Stop() {
 }
 
 /*
-Watch starts the service watcher goroutine. frequency is the number of
-seconds to wait between API update requests. Must be greater than 0.
-Default value is 5.
+Watch starts the service watcher goroutine. 'delay' is the number of
+seconds to wait between API update requests.
 */
-func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
+func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 	services.interrupt = make(chan bool)
 	changeSetCh := make(chan ChangeSet)
 	readyCh := make(chan bool)
 
 	go func() {
-		delay := frequency * time.Second // Poll the API and update every `delay` period
 		last := time.Now()
 		serviceMap := make(map[string]apiv1.Service)
 
@@ -77,7 +75,7 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 				}
 
 				// Update the service data if the map is empty or once
-				// per `frequency` period.
+				// per `delay` period.
 				if 0 == len(serviceMap) || time.Now().Sub(last) > delay {
 					last = time.Now()
 
@@ -85,6 +83,7 @@ func (services *Services) Watch(frequency time.Duration) chan ChangeSet {
 					svcs, err := services.client.List(metav1.ListOptions{})
 					if nil != err {
 						log.Error(err)
+						time.Sleep(1 * time.Second)
 						continue
 					}
 
