@@ -1,8 +1,6 @@
 # k8s-proxy
 
-This project provides a simple proxy service for easily working with multiple web services in a development environment in <a href="https://kubernetes.io/" target="_blank">Kubernetes</a>.
-
-<a href="https://hub.docker.com/r/mkenney/k8s-proxy/">Docker image here</a>.
+This project provides a simple proxy service for easily working with multiple web services in a development environment in [Kubernetes](https://kubernetes.io/). [Docker image here](https://hub.docker.com/r/mkenney/k8s-proxy/).
 
 <table><tbody><tr>
     <td width="150" align="center">
