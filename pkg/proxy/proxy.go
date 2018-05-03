@@ -251,9 +251,7 @@ func (proxy *Proxy) Start() chan error {
 
 	// Start the change watcher and the updater. This will block until
 	// data is available.
-	changes := proxy.K8s.Services.Watch(5)
-	proxy.readyCh <- struct{}{}
-	close(proxy.readyCh)
+	changes := proxy.K8s.Services.Watch(5 * time.Second)
 	go func() {
 		for delta := range changes {
 			proxy.UpdateServices(delta)
@@ -279,7 +277,7 @@ func (proxy *Proxy) Start() chan error {
 		}
 		log.WithFields(log.Fields{
 			"url": r.URL,
-		}).Error("Service Unavailable - readiness probe failed")
+		}).Warn("503 Service Unavailable - readiness probe failed")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
 			Reason string
@@ -297,7 +295,25 @@ func (proxy *Proxy) Start() chan error {
 		"port": proxy.Port,
 	}).Info("starting kubernetes proxy")
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		proxy.Pass(w, r)
+		if proxy.ready {
+			proxy.Pass(w, r)
+			return
+		}
+
+		// Return a 503 if the proxy service isn't ready yet.
+		log.WithFields(log.Fields{
+			"url": r.URL,
+		}).Warn("503 Service Unavailable - Request failed, proxy not yet ready")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
+			Reason string
+			Host   string
+			Msg    string
+		}{
+			Reason: "503 Service Unavailable",
+			Host:   r.Host,
+			Msg:    "The proxy service is not yet ready.",
+		})
 	})
 
 	// Start the HTTP passthrough server.
@@ -323,6 +339,9 @@ func (proxy *Proxy) Start() chan error {
 			nil,
 		)
 	}()
+
+	proxy.readyCh <- struct{}{}
+	close(proxy.readyCh)
 
 	return errs
 }

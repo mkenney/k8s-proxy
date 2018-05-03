@@ -44,8 +44,8 @@ func (services *Services) Stop() {
 }
 
 /*
-Watch starts the service watcher goroutine. 'delay' is the number of
-seconds to wait between API update requests.
+Watch starts the service watcher goroutine. 'delay' is the amount of
+time to wait between updates to the services map.
 */
 func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 	services.interrupt = make(chan bool)
@@ -79,7 +79,8 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 				if 0 == len(serviceMap) || time.Now().Sub(last) > delay {
 					last = time.Now()
 
-					// Fetch the service list from the k8s API
+					// Fetch the service list from the k8s API. Throttle
+					// after an error in case this is the first run.
 					svcs, err := services.client.List(metav1.ListOptions{})
 					if nil != err {
 						log.Error(err)
@@ -89,7 +90,7 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 
 					// Convert to a named map of services and compute
 					// the differences between the current and previous
-					// states
+					// states.
 					svcMap := map[string]apiv1.Service{}
 					for _, service := range svcs.Items {
 						svcMap[service.Name] = service
