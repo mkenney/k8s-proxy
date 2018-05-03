@@ -111,101 +111,56 @@ func (proxy *Proxy) Map() map[string]apiv1.Service {
 }
 
 /*
+getService will attempt ot match a request to the correct service.
+*/
+func (proxy *Proxy) getService(r *http.Request) (*Service, error) {
+	for k, service := range proxy.serviceMap {
+		if strings.HasPrefix(r.Host, k+".") {
+			return service, nil
+		}
+	}
+	return nil, fmt.Errorf("service not found")
+}
+
+var faviconBytes []byte
+
+/*
+getFaviconBytes returns the favicon.ico data.
+*/
+func getFaviconBytes() []byte {
+	var err error
+	if nil == faviconBytes || 0 == len(faviconBytes) {
+		faviconBytes, err = ioutil.ReadFile("/go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico")
+		if nil != err {
+			log.Error(err)
+		}
+	}
+	return faviconBytes
+}
+
+/*
 Pass passes HTTP traffic through to the requested service.
 */
 func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
-	var err error
-	service := ""
-	for k := range proxy.serviceMap {
-		if strings.HasPrefix(r.Host, k+".") {
-			service = k
-			break
-		}
+	svc, err := proxy.getService(r)
+	protocol := "http"
+	if nil != r.TLS {
+		protocol = "https"
 	}
 
-	// Find the correct service proxy and route the traffic.
-	if svc, ok := proxy.serviceMap[service]; ok {
-		log.WithFields(log.Fields{
-			"endpoint": svc.Proxy.URL,
-			"referer":  r.Referer(),
-		}).Infof("serving request")
-
-		// Wrap the ResponseWriter it to intercept the resulting status
-		// code of the proxied request.
-		proxyWriter := &ResponseWriter{200, make([]byte, 0), http.Header{}}
-		svc.Proxy.ServeHTTP(proxyWriter, r)
-
-		for k, v := range proxyWriter.Header() {
-			w.Header().Set(k, v[0])
-		}
-		if 502 == proxyWriter.Status() {
-			log.WithFields(log.Fields{
-				"status": http.StatusText(proxyWriter.Status()),
-				"host":   r.Host,
-			}).Infof("service responded with an error")
-
-			if "/favicon.ico" == r.URL.String() {
-				if nil == faviconBytes || 0 == len(faviconBytes) {
-					faviconBytes, err = ioutil.ReadFile("/go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico")
-					if nil != err {
-						log.Error(err)
-					}
-				}
-
-				w.WriteHeader(http.StatusOK)
-				w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
-				_, err = w.Write(faviconBytes)
-				if nil != err {
-					log.Error(err)
-				}
-
-			} else {
-				w.WriteHeader(http.StatusServiceUnavailable)
-				err = HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
-					Reason string
-					Host   *url.URL
-					Msg    string
-				}{
-					Reason: fmt.Sprintf("%d %s", proxyWriter.Status(), http.StatusText(proxyWriter.Status())),
-					Host:   svc.Proxy.URL,
-					Msg:    "The deployed pod(s) may be unavailable or unresponsive.",
-				})
-				if nil != err {
-					log.Error(err)
-				}
-			}
-		} else {
-			w.WriteHeader(proxyWriter.Status())
-		}
-		w.Write(proxyWriter.data)
-
-	} else {
-		protocol := "http"
-		if nil != r.TLS {
-			protocol = "https"
-		}
+	if nil != err {
 		log.WithFields(log.Fields{
 			"url": fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
 		}).Warn("request failed, no matching service found")
 
 		if "/favicon.ico" == r.URL.String() {
-			if nil == faviconBytes || 0 == len(faviconBytes) {
-				faviconBytes, err = ioutil.ReadFile("/go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico")
-				if nil != err {
-					log.Error(err)
-				}
-			}
-
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
-			_, err = w.Write(faviconBytes)
-			if nil != err {
-				log.Error(err)
-			}
+			w.Write(getFaviconBytes())
 
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
-			err := HTTPErrs[http.StatusBadGateway].Execute(w, struct {
+			HTTPErrs[http.StatusBadGateway].Execute(w, struct {
 				Host     string
 				Scheme   string
 				Services map[string]*Service
@@ -214,14 +169,52 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 				Scheme:   strings.ToUpper(protocol),
 				Services: proxy.serviceMap,
 			})
-			if nil != err {
-				log.Error(err)
-			}
 		}
+		return
 	}
-}
 
-var faviconBytes []byte
+	log.WithFields(log.Fields{
+		"endpoint": svc.Proxy.URL,
+		"referer":  r.Referer(),
+	}).Infof("serving request")
+
+	// Inject our own ResponseWriter to intercept the result of the
+	// proxied request.
+	proxyWriter := &ResponseWriter{200, make([]byte, 0), http.Header{}}
+	svc.Proxy.ServeHTTP(proxyWriter, r)
+
+	// Write headers first.
+	for k, v := range proxyWriter.Header() {
+		w.Header().Set(k, v[0])
+	}
+	if 502 == proxyWriter.Status() {
+		log.WithFields(log.Fields{
+			"status": http.StatusText(proxyWriter.Status()),
+			"host":   r.Host,
+		}).Infof("service responded with an error")
+
+		if "/favicon.ico" == r.URL.String() {
+			w.WriteHeader(http.StatusOK)
+			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
+			w.Write(faviconBytes)
+
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
+				Reason string
+				Host   *url.URL
+				Msg    string
+			}{
+				Reason: fmt.Sprintf("%d %s", proxyWriter.Status(), http.StatusText(proxyWriter.Status())),
+				Host:   svc.Proxy.URL,
+				Msg:    "The deployed pod(s) may be unavailable or unresponsive.",
+			})
+		}
+	} else {
+		w.WriteHeader(proxyWriter.Status())
+	}
+	w.Write(proxyWriter.data)
+}
 
 /*
 RemoveService removes a service from the map.
