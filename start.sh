@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
@@ -9,14 +9,17 @@ if [ "" = "$k8s_namespace" ]; then
     k8s_namespace="default"
 fi
 
-HIGHLIGHT=$'\033[38;5;172m'
-NORMAL=$'\033[0m'
+WARN=$'\033[38;5;1m'
+EMPH=$'\033[38;5;172m'
+NORM=$'\033[0m'
 printf "
 This script will start the kubernetes proxy service using the \`kubectl apply\`
-command. Make sure you are configured for the correct environment.
+command.
 
-Current context:   ${HIGHLIGHT}${k8s_context}${NORMAL}
-Current namespace: ${HIGHLIGHT}${k8s_namespace}${NORMAL}
+    ${WARN}Please make sure you are configured for the intended environment${NORM}
+
+Current context:   ${EMPH}${k8s_context}${NORM}
+Current namespace: ${EMPH}${k8s_namespace}${NORM}
 
 "
 read -p "Do you want to continue? [y/N]: " EXECUTE
