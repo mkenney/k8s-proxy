@@ -12,40 +12,40 @@ import (
 )
 
 /*
-PORT defines the exposed k8s-proxy port.
+K8S_PROXY_PORT defines the exposed k8s-proxy port.
 */
-var PORT int
+var K8S_PROXY_PORT int
 
 /*
-SSLPORT defines the exposed k8s-proxy SSL port.
+K8S_PROXY_SSLPORT defines the exposed k8s-proxy SSL port.
 */
-var SSLPORT int
+var K8S_PROXY_SSLPORT int
 
 /*
-TIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
+K8S_PROXY_TIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
 (900 seconds).
 */
-var TIMEOUT int
+var K8S_PROXY_TIMEOUT int
 
 func init() {
 	var err error
 
-	PORT, err = strconv.Atoi(os.Getenv("PORT"))
-	if nil != err || PORT > 65535 {
-		log.Warnf("invalid PORT env '%d', defaulting to port 80", PORT)
-		PORT = 80
+	K8S_PROXY_PORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_PORT"))
+	if nil != err || K8S_PROXY_PORT > 65535 {
+		log.Warnf("invalid K8S_PROXY_PORT env '%d', defaulting to port 80", K8S_PROXY_PORT)
+		K8S_PROXY_PORT = 80
 	}
 
-	SSLPORT, err = strconv.Atoi(os.Getenv("SSLPORT"))
-	if nil != err || SSLPORT > 65535 {
-		log.Warnf("invalid SSLPORT env '%d', defaulting to port 443", SSLPORT)
-		SSLPORT = 443
+	K8S_PROXY_SSLPORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_SSLPORT"))
+	if nil != err || K8S_PROXY_SSLPORT > 65535 {
+		log.Warnf("invalid K8S_PROXY_SSLPORT env '%d', defaulting to port 443", K8S_PROXY_SSLPORT)
+		K8S_PROXY_SSLPORT = 443
 	}
 
-	TIMEOUT, err = strconv.Atoi(os.Getenv("TIMEOUT"))
-	if nil != err || TIMEOUT > 900 || TIMEOUT < 0 {
-		log.Warnf("invalid TIMEOUT env '%d', defaulting to 10 seconds", TIMEOUT)
-		TIMEOUT = 10
+	K8S_PROXY_TIMEOUT, err = strconv.Atoi(os.Getenv("K8S_PROXY_TIMEOUT"))
+	if nil != err || K8S_PROXY_TIMEOUT > 900 || K8S_PROXY_TIMEOUT < 0 {
+		log.Warnf("invalid K8S_PROXY_TIMEOUT env '%d', defaulting to 10 seconds", K8S_PROXY_TIMEOUT)
+		K8S_PROXY_TIMEOUT = 10
 	}
 
 	// log level and format
@@ -65,17 +65,16 @@ func init() {
 func main() {
 
 	proxy, err := proxy.New(
-		PORT,
-		SSLPORT,
-		TIMEOUT,
+		K8S_PROXY_PORT,
+		K8S_PROXY_SSLPORT,
+		K8S_PROXY_TIMEOUT,
 	)
 	if nil != err {
 		log.Fatal(err)
 	}
 
 	errChan := proxy.Start()
-
-	proxy.Wait() // Wait for the k8s services to be ready
+	proxy.Wait() // Block until the proxy service is ready
 	log.Infof("ready to serve traffic")
 
 	// Shutdown when a signal is received.

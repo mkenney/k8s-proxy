@@ -11,48 +11,34 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 )
 
+func init() {
+	// Don't validate SSL certificates
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+}
+
 /*
 NewReverseProxy creates a new reverse proxy to forward traffic through.
 */
-func NewReverseProxy(service apiv1.Service, port apiv1.ServicePort) (*ReverseProxy, error) {
-	protocol := "http"
-	if 443 == port.Port {
-		protocol = "https"
-	}
-	if "https" == port.Protocol {
-		protocol = "https"
-	}
-	if _, ok := service.Labels["k8s-proxy-protocol"]; ok {
-		protocol = service.Labels["k8s-proxy-protocol"]
-	}
-
-	proxyPort := port.Port
-	if 0 > port.NodePort {
-		proxyPort = service.Spec.Ports[0].NodePort
-	}
+func NewReverseProxy(scheme string, service apiv1.Service, port int32) (*ReverseProxy, error) {
 
 	clusterURL, err := url.Parse(fmt.Sprintf(
-		"%s://%s.%s.svc.cluster.local:%d",
-		protocol,
+		"%s://%s.%s:%d",
+		scheme,
 		service.Name,
 		service.Namespace,
-		proxyPort,
+		port,
 	))
 	if nil != err {
 		return nil, err
 	}
 
 	rp := &ReverseProxy{
-		URL:       clusterURL,
-		proxy:     httputil.NewSingleHostReverseProxy(clusterURL),
 		Active:    true,
 		Available: time.Now(),
 		Service:   service.Name,
+		URL:       clusterURL,
+		proxy:     httputil.NewSingleHostReverseProxy(clusterURL),
 	}
-
-	// Don't validate SSL certificates
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-
 	rp.proxy.FlushInterval = 0
 
 	return rp, nil

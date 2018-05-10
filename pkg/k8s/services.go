@@ -106,12 +106,8 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 					}
 
 					// Signal that the services available in the cluster
-					// have changed. Don't block longer than the
-					// scheduled delay.
-					select {
-					case changeSetCh <- changeSet:
-					case <-time.After(delay - time.Now().Sub(last)):
-					}
+					// have changed.
+					changeSetCh <- changeSet
 				}
 			}
 		}
@@ -132,14 +128,14 @@ func diffServices(cur, new map[string]apiv1.Service) ChangeSet {
 		Removed: map[string]apiv1.Service{},
 	}
 
-	for k, v := range cur {
-		if _, ok := new[v.Name]; !ok {
-			changes.Removed[k] = v
-		}
-	}
 	for k, v := range new {
 		if _, ok := cur[v.Name]; !ok {
 			changes.Added[k] = v
+		}
+	}
+	for k, v := range cur {
+		if _, ok := new[v.Name]; !ok {
+			changes.Removed[k] = v
 		}
 	}
 

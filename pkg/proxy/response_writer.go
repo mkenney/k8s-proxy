@@ -5,13 +5,14 @@ import (
 )
 
 /*
-ResponseWriter wraps http.ResponseWriter instances to add a Status
-method.
+ResponseWriter implements http.ResponseWriter and is used to intercept
+the responses from the proxied services to capture and inspect 502 and
+503 errors.
 */
 type ResponseWriter struct {
-	status int
 	data   []byte
 	header http.Header
+	status int
 }
 
 /*
@@ -22,14 +23,14 @@ func (w *ResponseWriter) Status() int {
 }
 
 /*
-Header implements http.ResponseWriter
+Header implements http.ResponseWriter and captures response header data.
 */
 func (w *ResponseWriter) Header() http.Header {
 	return w.header
 }
 
 /*
-Write implements http.ResponseWriter
+Write implements http.ResponseWriter and captures response body data.
 */
 func (w *ResponseWriter) Write(data []byte) (int, error) {
 	w.data = append(w.data, data...)
@@ -37,7 +38,8 @@ func (w *ResponseWriter) Write(data []byte) (int, error) {
 }
 
 /*
-WriteHeader implements http.ResponseWriter
+WriteHeader implements http.ResponseWriter and captures response status
+codes.
 */
 func (w *ResponseWriter) WriteHeader(code int) {
 	w.status = code

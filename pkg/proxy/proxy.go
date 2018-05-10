@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,10 +59,10 @@ type Proxy struct {
 Service defines a k8s service proxy.
 */
 type Service struct {
-	Name     string
-	Port     int32
-	Protocol string
-	Proxy    *ReverseProxy
+	Name   string
+	Port   int32
+	Scheme string
+	Proxy  *ReverseProxy
 }
 
 /*
@@ -69,35 +70,63 @@ AddService adds a service to the passthrough map.
 */
 func (proxy *Proxy) AddService(service apiv1.Service) error {
 	if service.Name == "k8s-proxy" {
-		return fmt.Errorf("'k8s-proxy' cannot be a proxy target")
+		return fmt.Errorf("'k8s-proxy' cannot be a proxy target, skipping")
 	}
-	for _, port := range service.Spec.Ports {
-		if port.Port >= 80 && "TCP" == port.Protocol {
 
-			domain := service.Name
-			if _, ok := service.Labels["k8s-proxy-domain"]; ok {
-				domain = service.Labels["k8s-proxy-domain"]
+	// Service subdomain
+	domain := service.Name
+	if _, ok := service.Labels["k8s-proxy-domain"]; ok {
+		domain = service.Labels["k8s-proxy-domain"]
+	}
+
+	for _, servicePort := range service.Spec.Ports {
+		// Service port
+		port := servicePort.Port
+		if 0 > servicePort.TargetPort.IntVal {
+			port = service.Spec.Ports[0].TargetPort.IntVal
+		}
+		if 0 > servicePort.NodePort {
+			port = service.Spec.Ports[0].NodePort
+		}
+		if p, ok := service.Labels["k8s-proxy-port"]; ok {
+			ptmp, err := strconv.Atoi(p)
+			if nil == err {
+				port = int32(ptmp)
+			}
+		}
+
+		if port >= 80 && "TCP" == servicePort.Protocol {
+			// HTTP Scheme
+			scheme := "http"
+			if 443 == servicePort.Port {
+				scheme = "https"
+			}
+			if _, ok := service.Labels["k8s-proxy-scheme"]; ok {
+				scheme = service.Labels["k8s-proxy-scheme"]
 			}
 
-			rp, err := NewReverseProxy(service, port)
+			rp, err := NewReverseProxy(scheme, service, port)
 			if nil != err {
 				return err
 			}
 
 			log.WithFields(log.Fields{
-				"port":    port.Port,
+				"port":    port,
 				"service": service.Name,
-				"url":     fmt.Sprintf("//%s.*", domain),
+				"url":     fmt.Sprintf("%s://%s", scheme, domain),
 			}).Info("registering service")
 
-			proxy.svcMapMux.Lock()
-			proxy.serviceMap[domain] = &Service{
-				Name:     service.Name,
-				Port:     port.Port,
-				Protocol: string(port.Protocol),
-				Proxy:    rp,
+			svc := &Service{
+				Name:   service.Name,
+				Port:   port,
+				Scheme: scheme,
+				Proxy:  rp,
 			}
+			proxy.svcMapMux.Lock()
+			proxy.serviceMap[domain] = svc
 			proxy.svcMapMux.Unlock()
+
+			break
 		}
 	}
 	return nil
@@ -114,22 +143,32 @@ func (proxy *Proxy) Map() map[string]apiv1.Service {
 getService will attempt ot match a request to the correct service.
 */
 func (proxy *Proxy) getService(r *http.Request) (*Service, error) {
-	for k, service := range proxy.serviceMap {
-		if strings.HasPrefix(r.Host, k+".") {
-			return service, nil
+	match := ""
+	for k := range proxy.serviceMap {
+		if r.Host == k {
+			match = k
+			break
+		} else if strings.HasPrefix(r.Host, k+".") && len(match) < len(k) {
+			match = k
 		}
 	}
-	return nil, fmt.Errorf("service not found")
+	if "" != match {
+		return proxy.serviceMap[match], nil
+	}
+	return nil, fmt.Errorf("no service found to fulfill request '%s'", r.Host)
 }
 
+/*
+faviconBytes stores the favicon.ico data.
+*/
 var faviconBytes []byte
 
 /*
 getFaviconBytes returns the favicon.ico data.
 */
 func getFaviconBytes() []byte {
-	var err error
 	if nil == faviconBytes || 0 == len(faviconBytes) {
+		var err error
 		faviconBytes, err = ioutil.ReadFile("/go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico")
 		if nil != err {
 			log.Error(err)
@@ -142,20 +181,21 @@ func getFaviconBytes() []byte {
 Pass passes HTTP traffic through to the requested service.
 */
 func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
-	svc, err := proxy.getService(r)
-	protocol := "http"
+	scheme := "http"
 	if nil != r.TLS {
-		protocol = "https"
+		scheme = "https"
 	}
 
+	svc, err := proxy.getService(r)
 	if nil != err {
 		log.WithFields(log.Fields{
-			"url": fmt.Sprintf("%s://%s%s", protocol, r.Host, r.URL),
+			"url": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
+			"err": err.Error(),
 		}).Warn("request failed, no matching service found")
 
 		if "/favicon.ico" == r.URL.String() {
-			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
+			w.WriteHeader(http.StatusOK)
 			w.Write(getFaviconBytes())
 
 		} else {
@@ -166,7 +206,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 				Services map[string]*Service
 			}{
 				Host:     r.Host,
-				Scheme:   strings.ToUpper(protocol),
+				Scheme:   strings.ToUpper(scheme),
 				Services: proxy.serviceMap,
 			})
 		}
@@ -180,12 +220,14 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 	// Inject our own ResponseWriter to intercept the result of the
 	// proxied request.
-	proxyWriter := &ResponseWriter{200, make([]byte, 0), http.Header{}}
+	proxyWriter := &ResponseWriter{make([]byte, 0), http.Header{}, 200}
 	svc.Proxy.ServeHTTP(proxyWriter, r)
 
-	// Write headers first.
-	for k, v := range proxyWriter.Header() {
-		w.Header().Set(k, v[0])
+	// Write headers.
+	for k, vals := range proxyWriter.Header() {
+		for _, v := range vals {
+			w.Header().Add(k, v)
+		}
 	}
 	if 502 == proxyWriter.Status() {
 		log.WithFields(log.Fields{
@@ -194,8 +236,8 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		}).Infof("service responded with an error")
 
 		if "/favicon.ico" == r.URL.String() {
-			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
+			w.WriteHeader(http.StatusOK)
 			w.Write(faviconBytes)
 
 		} else {
@@ -220,28 +262,28 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 RemoveService removes a service from the map.
 */
 func (proxy *Proxy) RemoveService(service apiv1.Service) error {
-	for _, port := range service.Spec.Ports {
-		domain := service.Name
-		if _, ok := service.Labels["k8s-proxy-domain"]; ok {
-			domain = service.Labels["k8s-proxy-domain"]
-		}
-
-		if _, ok := proxy.serviceMap[domain]; ok {
-			log.WithFields(log.Fields{
-				"name": service.Name,
-				"port": port.Port,
-			}).Info("removing service")
-			proxy.svcMapMux.Lock()
-			delete(proxy.serviceMap, domain)
-			proxy.svcMapMux.Unlock()
-		}
+	domain := service.Name
+	if _, ok := service.Labels["k8s-proxy-domain"]; ok {
+		domain = service.Labels["k8s-proxy-domain"]
 	}
+
+	if _, ok := proxy.serviceMap[domain]; !ok {
+		return fmt.Errorf("could not remove service '%s', no match found in service map", service.Name)
+	}
+
+	log.WithFields(log.Fields{
+		"service": service.Name,
+		"domain":  domain,
+	}).Info("removing service")
+	proxy.svcMapMux.Lock()
+	delete(proxy.serviceMap, domain)
+	proxy.svcMapMux.Unlock()
 
 	return nil
 }
 
 /*
-Start starts the proxy.
+Start starts the proxy services.
 */
 func (proxy *Proxy) Start() chan error {
 	errs := make(chan error)
@@ -250,7 +292,7 @@ func (proxy *Proxy) Start() chan error {
 	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
 
 	// Start the change watcher and the updater. This will block until
-	// data is available.
+	// service data is available from the Kubernetes API.
 	changes := proxy.K8s.Services.Watch(5 * time.Second)
 	go func() {
 		for delta := range changes {

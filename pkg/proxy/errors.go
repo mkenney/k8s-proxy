@@ -30,7 +30,9 @@ func init() {
 	// any known service.
 	statusText := http.StatusText(http.StatusBadGateway)
 	HTTPErrs[http.StatusBadGateway], err = template.
-		New(statusText).Funcs(funcMap).Parse(`<!DOCTYPE html>
+		New(statusText).
+		Funcs(funcMap).
+		Parse(`<!DOCTYPE html>
 <html>
 	<head>
 		<title>` + statusText + `</title>
@@ -76,7 +78,9 @@ func init() {
 	// and times out.
 	statusText = http.StatusText(http.StatusServiceUnavailable)
 	HTTPErrs[http.StatusServiceUnavailable], err = template.
-		New(statusText).Funcs(funcMap).Parse(`<!DOCTYPE html>
+		New(statusText).
+		Funcs(funcMap).
+		Parse(`<!DOCTYPE html>
 <html>
 	<head>
 		<title>` + statusText + `</title>

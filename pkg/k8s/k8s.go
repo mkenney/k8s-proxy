@@ -19,21 +19,17 @@ type K8S struct {
 New is the constructor for the K8S struct.
 */
 func New() (*K8S, error) {
-	// create the in-cluster config
+	// create the Kubernetes API client
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
-
-	// create the client
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 
-	k8s := &K8S{
-		Client: client.CoreV1(),
-	}
+	k8s := &K8S{Client: client.CoreV1()}
 	k8s.Services = &Services{
 		client:    k8s.Client.Services(""),
 		interrupt: make(chan bool),
