@@ -32,4 +32,4 @@ EXPOSE 80
 EXPOSE 443
 WORKDIR /bin
 
-ENTRYPOINT ["/bin/k8s-proxy"]
+ENTRYPOINT ["/go/bin/k8s-proxy"]

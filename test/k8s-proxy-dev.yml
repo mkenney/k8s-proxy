@@ -96,7 +96,7 @@ spec:
                     volumeMounts:
                         -   mountPath: /go/src/github.com/mkenney/k8s-proxy/assets
                             name: assetpath
-                        -   mountPath: /bin
+                        -   mountPath: /go/bin
                             name: binpath
             volumes:
                 -   name: assetpath

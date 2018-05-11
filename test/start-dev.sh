@@ -85,16 +85,16 @@ if [ "0" != "$?" ]; then
 fi
 
 echo
-echo "removing k8s-proxy-test-1 deployment and service..."
-kubectl delete deploy  k8s-proxy-test-1 &> /dev/null
-kubectl delete service k8s-proxy-test-1 &> /dev/null
-
-echo "removing k8s-proxy-test-2 deployment and service..."
-kubectl delete deploy  k8s-proxy-test-2 &> /dev/null
-kubectl delete service k8s-proxy-test-2 &> /dev/null
-
-echo "removing k8s-proxy-test-3 deployment and service..."
-kubectl delete service k8s-proxy-test-3 &> /dev/null
+#echo "removing k8s-proxy-test-1 deployment and service..."
+#kubectl delete deploy  k8s-proxy-test-1 &> /dev/null
+#kubectl delete service k8s-proxy-test-1 &> /dev/null
+#
+#echo "removing k8s-proxy-test-2 deployment and service..."
+#kubectl delete deploy  k8s-proxy-test-2 &> /dev/null
+#kubectl delete service k8s-proxy-test-2 &> /dev/null
+#
+#echo "removing k8s-proxy-test-3 deployment and service..."
+#kubectl delete service k8s-proxy-test-3 &> /dev/null
 
 echo "removing k8s-proxy deployment and service..."
 kubectl delete deploy k8s-proxy &> /dev/null
@@ -106,14 +106,14 @@ echo
 echo "applying k8s-proxy deployment and service..."
 cat k8s-proxy-dev.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
-echo "applying k8s-proxy-test-1 deployment and service..."
-cat k8s-proxy-test-1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
-
-echo "applying k8s-proxy-test-2 deployment and service..."
-cat k8s-proxy-test-2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
-
-echo "applying k8s-proxy-test-3 deployment and service..."
-cat k8s-proxy-test-3.yml | kubectl create -f - > /dev/null
+#echo "applying k8s-proxy-test-1 deployment and service..."
+#cat k8s-proxy-test-1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+#
+#echo "applying k8s-proxy-test-2 deployment and service..."
+#cat k8s-proxy-test-2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+#
+#echo "applying k8s-proxy-test-3 deployment and service..."
+#cat k8s-proxy-test-3.yml | kubectl create -f - > /dev/null
 
 pod=
 printf "\n"

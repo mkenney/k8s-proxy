@@ -215,7 +215,8 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 	log.WithFields(log.Fields{
 		"endpoint": svc.Proxy.URL,
-		"referer":  r.Referer(),
+		"host":     r.Host,
+		"url":      r.URL,
 	}).Infof("serving request")
 
 	// Inject our own ResponseWriter to intercept the result of the
