@@ -4,10 +4,6 @@ IMAGE=mkenney/k8s-proxy:latest
 DEPLOYMENT=k8s-proxy
 
 k8s_context=$(kubectl config view -o=jsonpath='{.current-context}')
-k8s_namespace=$(kubectl config view -o=jsonpath="{.contexts[?(@.name==\"$kcontext\")].context.namespace}")
-if [ "" = "$k8s_namespace" ]; then
-    k8s_namespace="default"
-fi
 
 WARN=$'\033[38;5;1m'
 EMPH=$'\033[38;5;172m'
@@ -19,7 +15,6 @@ command.
     ${WARN}Please make sure you are configured for the intended environment${NORM}
 
 Current context:   ${EMPH}${k8s_context}${NORM}
-Current namespace: ${EMPH}${k8s_namespace}${NORM}
 
 "
 read -p "Do you want to continue? [y/N]: " EXECUTE
@@ -90,16 +85,16 @@ if [ "0" != "$?" ]; then
 fi
 
 echo
-echo "removing k8s-proxy-test-1 deployment and service..."
-kubectl delete deploy  k8s-proxy-test-1 &> /dev/null
-kubectl delete service k8s-proxy-test-1 &> /dev/null
-
-echo "removing k8s-proxy-test-2 deployment and service..."
-kubectl delete deploy  k8s-proxy-test-2 &> /dev/null
-kubectl delete service k8s-proxy-test-2 &> /dev/null
-
-echo "removing k8s-proxy-test-3 deployment and service..."
-kubectl delete service k8s-proxy-test-3 &> /dev/null
+#echo "removing k8s-proxy-test-1 deployment and service..."
+#kubectl delete deploy  k8s-proxy-test-1 &> /dev/null
+#kubectl delete service k8s-proxy-test-1 &> /dev/null
+#
+#echo "removing k8s-proxy-test-2 deployment and service..."
+#kubectl delete deploy  k8s-proxy-test-2 &> /dev/null
+#kubectl delete service k8s-proxy-test-2 &> /dev/null
+#
+#echo "removing k8s-proxy-test-3 deployment and service..."
+#kubectl delete service k8s-proxy-test-3 &> /dev/null
 
 echo "removing k8s-proxy deployment and service..."
 kubectl delete deploy k8s-proxy &> /dev/null
@@ -111,14 +106,14 @@ echo
 echo "applying k8s-proxy deployment and service..."
 cat k8s-proxy-dev.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
 
-echo "applying k8s-proxy-test-1 deployment and service..."
-cat k8s-proxy-test-1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
-
-echo "applying k8s-proxy-test-2 deployment and service..."
-cat k8s-proxy-test-2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
-
-echo "applying k8s-proxy-test-3 deployment and service..."
-cat k8s-proxy-test-3.yml | kubectl create -f - > /dev/null
+#echo "applying k8s-proxy-test-1 deployment and service..."
+#cat k8s-proxy-test-1.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+#
+#echo "applying k8s-proxy-test-2 deployment and service..."
+#cat k8s-proxy-test-2.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+#
+#echo "applying k8s-proxy-test-3 deployment and service..."
+#cat k8s-proxy-test-3.yml | kubectl create -f - > /dev/null
 
 pod=
 printf "\n"

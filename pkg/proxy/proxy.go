@@ -114,10 +114,16 @@ func (proxy *Proxy) Map() map[string]apiv1.Service {
 getService will attempt ot match a request to the correct service.
 */
 func (proxy *Proxy) getService(r *http.Request) (*Service, error) {
-	for k, service := range proxy.serviceMap {
+	found := ""
+	for k := range proxy.serviceMap {
 		if strings.HasPrefix(r.Host, k+".") {
-			return service, nil
+			if len(k) > len(found) {
+				found = k
+			}
 		}
+	}
+	if "" != found {
+		return proxy.serviceMap[found], nil
 	}
 	return nil, fmt.Errorf("service not found")
 }
@@ -175,7 +181,8 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 
 	log.WithFields(log.Fields{
 		"endpoint": svc.Proxy.URL,
-		"referer":  r.Referer(),
+		"host":     r.Host,
+		"url":      r.URL,
 	}).Infof("serving request")
 
 	// Inject our own ResponseWriter to intercept the result of the
