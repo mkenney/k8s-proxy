@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
 	//"rsc.io/letsencrypt"
@@ -90,6 +91,9 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 		}
 		if p, ok := service.Labels["k8s-proxy-port"]; ok {
 			ptmp, err := strconv.Atoi(p)
+			if nil != err {
+				log.Warn(errors.Wrap(err, fmt.Sprintf("invalid 'k8s-proxy-port' value '%s'", p)))
+			}
 			if nil == err {
 				port = int32(ptmp)
 			}
