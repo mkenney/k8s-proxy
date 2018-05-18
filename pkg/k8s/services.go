@@ -107,7 +107,9 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 
 					// Signal that the services available in the cluster
 					// have changed.
-					changeSetCh <- changeSet
+					if len(changeSet.Added) > 0 || len(changeSet.Removed) > 0 {
+						changeSetCh <- changeSet
+					}
 				}
 			}
 		}

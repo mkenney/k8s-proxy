@@ -1,0 +1,19 @@
+dist: trusty
+env:
+    secure: kMWDck6dSJlm9K5ri74fLvqeFVUnA06iSz3aY672PLvo8iR1YmsyFxDiWGGLBOGQuPrTGkpyYVvIkGmTVV8OyZMvShFp9C9OVHAflmy4oglZ0S0xJa2wWfIalvOymCPSO7Ed5BiKig5RYJCzcbu2z0jBb4uOBv0YF5SaK7Wny43LzxsLNMPfeRaUUaDADwreySzfRopQjEn6ko5VNZ6Wv8CSldXjaCok+tDuysU2TMgQGuSKHcl4wPnv30LuOzyuD7Es613opJXy1BwjO2LmbWgXCqybZ7mi2Bksy9TT/1fDjwGobHxjfLZK4/iBF0RBFHmDEn6g1KS2awsqhy2N3XQ+fv2MokNYMe4yWpofwBv4q6zkpXq8mddclE9fgkUoSo1FeycS/e1bWSdQHcGp5fC4NLtvRa4bm+oEKWrwHi7ppQcsW7vmJXyi+RoL5lYEBPr7VmUkpDHiRPQWlRhpehY6OmRWoioG20uKN0KHCWY5XZYZ+UYnFtgtTb7DRLlAgFFZzT2cLpesldDHzyyk0nKl+8fVWC6zGZssF77cUymnefWQJBe8jO9nCvivJ3Ttv/obL35hEG97i0VUihRZDec1AgVQMu2sTDyLyUK+28FgrLqv1o5/lb1kT5Wfl7O0M5q8ILPL4Gdc6SSnIRfiiBzH2XcKvTygpct0ZlBFimE=
+sudo: required
+language: sh
+services:
+    - docker
+
+branches:
+    only:
+        - master
+
+notifications:
+    slack:
+        secure: Six7p+nRQhZapzzZvHBi0WgsPDndm+PjqjqeDdCqbSRrCQz+h/nr828Iin6woqPIFdc7qXAXpVaoNyopntVsoGjzkWkwlFHXpBhv6+zHV+yE5S+HfD4IG5HGS+qQa35XebJ93cHZGPqxdjBWusoSFOuQBQuC7ohZ3KEeZTizV1w3qbzA7p94sxcz/w0zJw8liD+0CJ39U6hL0QGE1fpkqpb/muxjbjQOSeGLzzmd04Don37X/aUmwSBZbLUmqOjkQ7R4fRWcVNyqxDuLnHh56J+UIZ/xN/K43fI9mzBohxkWa5GQGQDHY1ojlJyOCcLLb+Q2cnjz8s+FfCY/iMcXQOgfZSc7gvpFBysSWNG7RuGlmvff5A+ufqhFGh2O2PRcAF3kPuCKna4RI84kzoybAXXrjRnvqmoLzY9OTL/OOd4WheCmdrx70eIDxW0COKbaSDnyjgbOM6Xk8/50QsGjKZ+1XqHvslV0jpksUKxPCgOxMTIzAngzGizunetT6RJ8JjUAkOrDnW9ntWca1czZxUeF0SLbkGy401tXpdPUwC+tgsI8aCf5+fgCQGa6sKu0p17Qe91c5dPjJEJprSzRERD4YRMxTvv+DBx1zUYvwxr1GaAUZexI3UgUybIvZOvBg+AmjW+/ayqCVv/d3Ct0OyAKY08Hp0/E1lvqg+seKyI=
+
+before_install:
+    - docker build -t mkenney/k8s-proxy:ci-build . --no-cache
+    - cd test
