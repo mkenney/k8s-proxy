@@ -9,7 +9,6 @@ services:
 branches:
     only:
         - master
-        - php5
 
 notifications:
     slack:
