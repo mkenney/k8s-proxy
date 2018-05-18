@@ -12,40 +12,40 @@ import (
 )
 
 /*
-K8S_PROXY_PORT defines the exposed k8s-proxy port.
+K8SPROXYPORT defines the exposed k8s-proxy port.
 */
-var K8S_PROXY_PORT int
+var K8SPROXYPORT int
 
 /*
-K8S_PROXY_SSLPORT defines the exposed k8s-proxy SSL port.
+K8SPROXYSSLPORT defines the exposed k8s-proxy SSL port.
 */
-var K8S_PROXY_SSLPORT int
+var K8SPROXYSSLPORT int
 
 /*
-K8S_PROXY_TIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
+K8SPROXYTIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
 (900 seconds).
 */
-var K8S_PROXY_TIMEOUT int
+var K8SPROXYTIMEOUT int
 
 func init() {
 	var err error
 
-	K8S_PROXY_PORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_PORT"))
-	if nil != err || K8S_PROXY_PORT > 65535 {
-		log.Warnf("invalid K8S_PROXY_PORT env '%d', defaulting to port 80", K8S_PROXY_PORT)
-		K8S_PROXY_PORT = 80
+	K8SPROXYPORT, err = strconv.Atoi(os.Getenv("K8SPROXYPORT"))
+	if nil != err || K8SPROXYPORT > 65535 {
+		log.Warnf("invalid K8SPROXYPORT env '%d', defaulting to port 80", K8SPROXYPORT)
+		K8SPROXYPORT = 80
 	}
 
-	K8S_PROXY_SSLPORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_SSLPORT"))
-	if nil != err || K8S_PROXY_SSLPORT > 65535 {
-		log.Warnf("invalid K8S_PROXY_SSLPORT env '%d', defaulting to port 443", K8S_PROXY_SSLPORT)
-		K8S_PROXY_SSLPORT = 443
+	K8SPROXYSSLPORT, err = strconv.Atoi(os.Getenv("K8SPROXYSSLPORT"))
+	if nil != err || K8SPROXYSSLPORT > 65535 {
+		log.Warnf("invalid K8SPROXYSSLPORT env '%d', defaulting to port 443", K8SPROXYSSLPORT)
+		K8SPROXYSSLPORT = 443
 	}
 
-	K8S_PROXY_TIMEOUT, err = strconv.Atoi(os.Getenv("K8S_PROXY_TIMEOUT"))
-	if nil != err || K8S_PROXY_TIMEOUT > 900 || K8S_PROXY_TIMEOUT < 0 {
-		log.Warnf("invalid K8S_PROXY_TIMEOUT env '%d', defaulting to 10 seconds", K8S_PROXY_TIMEOUT)
-		K8S_PROXY_TIMEOUT = 10
+	K8SPROXYTIMEOUT, err = strconv.Atoi(os.Getenv("K8SPROXYTIMEOUT"))
+	if nil != err || K8SPROXYTIMEOUT > 900 || K8SPROXYTIMEOUT < 0 {
+		log.Warnf("invalid K8SPROXYTIMEOUT env '%d', defaulting to 10 seconds", K8SPROXYTIMEOUT)
+		K8SPROXYTIMEOUT = 10
 	}
 
 	// log level and format
@@ -65,9 +65,9 @@ func init() {
 func main() {
 
 	proxy, err := proxy.New(
-		K8S_PROXY_PORT,
-		K8S_PROXY_SSLPORT,
-		K8S_PROXY_TIMEOUT,
+		K8SPROXYPORT,
+		K8SPROXYSSLPORT,
+		K8SPROXYTIMEOUT,
 	)
 	if nil != err {
 		log.Fatal(err)
