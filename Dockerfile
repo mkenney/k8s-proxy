@@ -18,12 +18,9 @@ LABEL org.label-schema.schema-version = 1.0 \
     org.label-schema.description = "This service provides HTTP ingress proxy functionality for services in a kubernetes cluser." \
     org.label-schema.name = "Kubernetes Ingress Controller" \
     org.label-schema.url = https://github.com/mkenney/k8s-proxy
-
 COPY --from=build /go/bin/k8s-proxy /bin/k8s-proxy
 COPY ./assets /go/src/github.com/mkenney/k8s-proxy/assets
 
 EXPOSE 80
 EXPOSE 443
-WORKDIR /bin
-
 ENTRYPOINT ["/go/bin/k8s-proxy"]
