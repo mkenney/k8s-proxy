@@ -24,12 +24,14 @@ service scanner an error will be returned.
 */
 func New(
 	port int,
+	sslCert string,
 	sslPort int,
 	timeout int,
 ) (*Proxy, error) {
 	var err error
 	proxy := &Proxy{
 		Port:    port,
+		SSLCert: sslCert,
 		SSLPort: sslPort,
 		Timeout: timeout,
 
@@ -47,6 +49,7 @@ proxy service.
 type Proxy struct {
 	K8s     *k8s.K8S
 	Port    int
+	SSLCert string
 	SSLPort int
 	Timeout int
 
@@ -92,7 +95,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 		if p, ok := service.Labels["k8s-proxy-port"]; ok {
 			ptmp, err := strconv.Atoi(p)
 			if nil != err {
-				log.Warn(errors.Wrap(err, fmt.Sprintf("invalid 'k8s-proxy-port' value '%s'", p)))
+				log.Warn(errors.Wrap(err, fmt.Sprintf("invalid 'k8s-proxy-port' service label '%s'", p)))
 			}
 			if nil == err {
 				port = int32(ptmp)
@@ -377,12 +380,13 @@ func (proxy *Proxy) Start() chan error {
 	// Start the SSL passthrough server.
 	go func() {
 		log.WithFields(log.Fields{
+			"cert": proxy.SSLCert,
 			"port": proxy.SSLPort,
 		}).Infof("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
 			fmt.Sprintf(":%d", proxy.SSLPort),
-			"/go/src/github.com/mkenney/k8s-proxy/assets/k8s-proxy.crt",
-			"/go/src/github.com/mkenney/k8s-proxy/assets/k8s-proxy.key",
+			"/go/src/github.com/mkenney/k8s-proxy/assets/"+proxy.SSLCert+".crt",
+			"/go/src/github.com/mkenney/k8s-proxy/assets/"+proxy.SSLCert+".key",
 			nil,
 		)
 	}()

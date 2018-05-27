@@ -64,6 +64,8 @@ spec:
                             value: debug
                         -   name: K8S_PROXY_PORT
                             value: "80"
+                        -   name: K8S_PROXY_SSL_CERT
+                            value: "local.dev.mkenney.us"
                         -   name: K8S_PROXY_SSLPORT
                             value: "443"
                         -   name: K8S_PROXY_TIMEOUT

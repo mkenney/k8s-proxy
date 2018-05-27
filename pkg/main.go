@@ -22,6 +22,14 @@ K8SPROXYSSLPORT defines the exposed k8s-proxy SSL port.
 var K8SPROXYSSLPORT int
 
 /*
+K8SPROXYSSLCERT defines the name of an SSL certificate located in the
+/ssl directory. Adding a certificate to the proxy requires buiding your
+own image (or executing the /test/start-dev.sh script which volmounts
+everything).
+*/
+var K8SPROXYSSLCERT string
+
+/*
 K8SPROXYTIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
 (900 seconds).
 */
@@ -30,21 +38,27 @@ var K8SPROXYTIMEOUT int
 func init() {
 	var err error
 
-	K8SPROXYPORT, err = strconv.Atoi(os.Getenv("K8SPROXYPORT"))
+	K8SPROXYPORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_PORT"))
 	if nil != err || K8SPROXYPORT > 65535 {
-		log.Warnf("invalid K8SPROXYPORT env '%d', defaulting to port 80", K8SPROXYPORT)
+		log.Warnf("invalid K8S_PROXY_PORT env '%d', defaulting to port 80", K8SPROXYPORT)
 		K8SPROXYPORT = 80
 	}
 
-	K8SPROXYSSLPORT, err = strconv.Atoi(os.Getenv("K8SPROXYSSLPORT"))
+	K8SPROXYSSLCERT = os.Getenv("K8S_PROXY_SSL_CERT")
+	if "" == K8SPROXYSSLCERT {
+		log.Warnf("invalid K8S_PROXY_SSL_CERT env '%d', defaulting to 'k8s-proxy'", K8SPROXYSSLPORT)
+		K8SPROXYSSLCERT = "k8s-proxy"
+	}
+
+	K8SPROXYSSLPORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_SSL_PORT"))
 	if nil != err || K8SPROXYSSLPORT > 65535 {
-		log.Warnf("invalid K8SPROXYSSLPORT env '%d', defaulting to port 443", K8SPROXYSSLPORT)
+		log.Warnf("invalid K8S_PROXY_SSL_PORT env '%d', defaulting to port 443", K8SPROXYSSLPORT)
 		K8SPROXYSSLPORT = 443
 	}
 
-	K8SPROXYTIMEOUT, err = strconv.Atoi(os.Getenv("K8SPROXYTIMEOUT"))
+	K8SPROXYTIMEOUT, err = strconv.Atoi(os.Getenv("K8S_PROXY_TIMEOUT"))
 	if nil != err || K8SPROXYTIMEOUT > 900 || K8SPROXYTIMEOUT < 0 {
-		log.Warnf("invalid K8SPROXYTIMEOUT env '%d', defaulting to 10 seconds", K8SPROXYTIMEOUT)
+		log.Warnf("invalid K8S_PROXY_TIMEOUT env '%d', defaulting to 10 seconds", K8SPROXYTIMEOUT)
 		K8SPROXYTIMEOUT = 10
 	}
 
@@ -63,9 +77,9 @@ func init() {
 }
 
 func main() {
-
 	proxy, err := proxy.New(
 		K8SPROXYPORT,
+		K8SPROXYSSLCERT,
 		K8SPROXYSSLPORT,
 		K8SPROXYTIMEOUT,
 	)
