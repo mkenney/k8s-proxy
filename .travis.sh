@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-docker pull golang:1.10-alpine
+
 docker run \
     --rm \
     -v $(pwd):/go/src/github.com/mkenney/k8s-proxy \
