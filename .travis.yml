@@ -13,8 +13,8 @@ notifications:
         secure: JKpEAaObH9gmEEva1vXY1MfvOhhHEWkL1ujnGPgxoInrZQN3zg0ppPX6zjZyTNsOF00u/SO09xPFrKqKnY57Ies119fuM91ruoXc14vsBtqSuvVETZLTaxlhB+AVSaSq7vs3gX+DW2eB5rknbGKdCnVCQ523xIABr1MFjzAfWx6JuzgO5STe2WTjTfPK9A2Kh4qR5TdT7EvoyeiyW6kY+j5ZGtYIBNTMDgWxzlrYN0McaNyjlBuj2FDv4og8hf8DuIPJa4FkBntXBZZK+IPvAM8SRko+SBK93629KgEK8WUzHyojggKkJaxoX3f9LnfpAYcfpew7G9+uCu8vtrFBs3zlu2yeSyL+gRY08zxAmRV9rB0cu+4SyAtwcJyHoW3wPYK3s4aZ9SO7jFrgFNPQ1Gs93Tnvz0brKOXKDwAsi9JmgC76gV8kVHoF3VxvMTpgmp5amybpmxrWTJgMEh9mKkAzjucPOi4fPldjPpxgWs9w2qyANbfTYNwWm+atN4qyI7qsCfEb8of/TduQ1RKYGB1oX+71uc3OYscB/24rnF8oadtA7YOJbdT52NcNPy0VhLoTKNt6i0b5gw2Zos36eW2E+ktGfXopmJah1unL6wn5NjDjC98l//ulrU11CzpQKgUwNGf2eanlFLRmeUTuCPNGJeQka4cGTRwwB5ZlI5w=
 
 script:
-    - docker build -t mkenney/k8s-proxy:ci-build .
     - ./.travis.sh
+    - docker build -t mkenney/k8s-proxy:ci-build .
 
 after_success:
     - bash <(curl -s https://codecov.io/bash)
