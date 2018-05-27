@@ -48,4 +48,4 @@ Or manually apply the deployment and service.
 kubectl apply -f k8s-proxy.yml
 ```
 
-Ports can be configured in the k8s-proxy.yml deployment. You must set both the container ports and the `K8S_PROXY_PORT` and `K8S_PROXY_SSLPORT` environment variables (which inform the proxy executable which ports to bind to).
+Ports can be configured in the k8s-proxy.yml deployment. You must set both the container ports and the `K8S_PROXY_PORT` and `K8S_PROXY_SSL_PORT` environment variables (which inform the proxy executable which ports to bind to).
