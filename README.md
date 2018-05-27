@@ -11,7 +11,7 @@
 	<a href="https://godoc.org/github.com/mkenney/k8s-proxy"><img src="https://godoc.org/github.com/mkenney/k8s-proxy?status.svg" alt="GoDoc"></a>
 </p>
 
-This project provides a simple HTTP proxy service for easily working with multiple web services in a [Kubernetes](https://kubernetes.io/) development environment. A [Docker image](https://hub.docker.com/r/mkenney/k8s-proxy/) is available for ease of use.
+This project provides a simple HTTP proxy service for easily working with multiple web services in a [Kubernetes](https://kubernetes.io/) development environment. A [Docker image](https://hub.docker.com/r/mkenney/k8s-proxy/) is available.
 
 ## Overview
 
