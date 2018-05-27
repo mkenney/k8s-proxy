@@ -1,9 +1,5 @@
 # k8s-proxy
 
-This project provides a simple HTTP proxy service for easily working with multiple web services in a development environment in [Kubernetes](https://kubernetes.io/).
-
-[Docker image here](https://hub.docker.com/r/mkenney/k8s-proxy/).
-
 <p align="center">
 	<a href="https://github.com/mkenney/k8s-proxy/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mkenney/k8s-proxy.svg" alt="MIT License"></a>
 	<a href="https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#alpha"><img src="https://img.shields.io/badge/stability-alpha-f4d03f.svg" alt="Beta"></a>
@@ -15,6 +11,9 @@ This project provides a simple HTTP proxy service for easily working with multip
 	<a href="https://godoc.org/github.com/mkenney/k8s-proxy"><img src="https://godoc.org/github.com/mkenney/k8s-proxy?status.svg" alt="GoDoc"></a>
 </p>
 
+This project provides a simple HTTP proxy service for easily working with multiple web services in a [Kubernetes](https://kubernetes.io/) development environment. A [Docker image](https://hub.docker.com/r/mkenney/k8s-proxy/) is available.
+
+## Overview
 
 The `k8s-proxy` service will serve all traffic on ports `80` and `443`. SSL traffic on port `443` is encrypted using a self-signed certificate, with all of the associated issues that brings. The exposed ports are configurable in the [`k8s-proxy.yml`](https://github.com/mkenney/k8s-proxy/blob/master/k8s-proxy.yml) file. You must set both the exposed ports in the deployment and service, as well as the `K8S_PROXY_PORT` and `K8S_PROXY_SSLPORT` environment variables in the deployment. Exposing the ports allows them to receive traffic and defining the environment variables tells the proxy service which ports to listen on.
 
@@ -49,4 +48,4 @@ Or manually apply the deployment and service.
 kubectl apply -f k8s-proxy.yml
 ```
 
-Ports can be configured in the k8s-proxy.yml deployment. You must set both the container ports and the `K8S_PROXY_PORT` and `K8S_PROXY_SSLPORT` environment variables (which inform the proxy executable which ports to bind to).
+Ports can be configured in the k8s-proxy.yml deployment. You must set both the container ports and the `K8S_PROXY_PORT` and `K8S_PROXY_SSL_PORT` environment variables (which inform the proxy executable which ports to bind to).
