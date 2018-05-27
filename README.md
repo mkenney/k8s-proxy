@@ -1,8 +1,6 @@
 # k8s-proxy
 
-This project provides a simple HTTP proxy service for easily working with multiple web services in a development environment in [Kubernetes](https://kubernetes.io/).
-
-[Docker image here](https://hub.docker.com/r/mkenney/k8s-proxy/).
+This project provides a simple HTTP proxy service for easily working with multiple web services in a development environment in [Kubernetes](https://kubernetes.io/). A [Docker image](https://hub.docker.com/r/mkenney/k8s-proxy/) is available.
 
 <p align="center">
 	<a href="https://github.com/mkenney/k8s-proxy/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mkenney/k8s-proxy.svg" alt="MIT License"></a>
