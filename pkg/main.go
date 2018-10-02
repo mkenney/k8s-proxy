@@ -6,9 +6,8 @@ import (
 	"os/signal"
 	"strconv"
 
-	logfmt "github.com/mkenney/go-log-fmt"
+	"github.com/bdlm/log"
 	"github.com/mkenney/k8s-proxy/pkg/proxy"
-	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -72,7 +71,9 @@ func init() {
 		log.Warnf("Could not parse log level flag '%s', setting to 'debug'...", err.Error())
 		level, _ = log.ParseLevel("debug")
 	}
-	log.SetFormatter(&logfmt.TextFormat{})
+	log.SetFormatter(&log.TextFormatter{
+		ForceTTY: true,
+	})
 	log.SetLevel(level)
 }
 
