@@ -3,14 +3,14 @@ set -e
 
 exit_code=0
 
-#go get -v github.com/golang/lint/golint
+go get -v github.com/golang/lint/golint
 [ "0" = "$?" ] || exit 1
 
-#go get -u github.com/golang/dep/cmd/dep
+go get -u github.com/golang/dep/cmd/dep
 [ "0" = "$?" ] || exit 2
 
 #dep ensure
-[ "0" = "$?" ] || exit 3
+#[ "0" = "$?" ] || exit 3
 
 for dir in $(go list ./... | grep -v vendor); do
     echo "golint $dir"
