@@ -9,9 +9,6 @@ go get -v github.com/golang/lint/golint
 go get -u github.com/golang/dep/cmd/dep
 [ "0" = "$?" ] || exit 2
 
-#dep ensure
-#[ "0" = "$?" ] || exit 3
-
 for dir in $(go list ./... | grep -v vendor); do
     echo "golint $dir"
     result=$(golint $dir)
