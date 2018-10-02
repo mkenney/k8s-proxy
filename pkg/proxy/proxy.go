@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bdlm/log"
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	apiv1 "k8s.io/api/core/v1"
 	//"rsc.io/letsencrypt"
 )
@@ -224,7 +224,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		"endpoint": svc.Proxy.URL,
 		"host":     r.Host,
 		"url":      r.URL,
-	}).Infof("serving request")
+	}).Info("serving request")
 
 	// Inject our own ResponseWriter to intercept the result of the
 	// proxied request.
@@ -241,7 +241,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		log.WithFields(log.Fields{
 			"status": http.StatusText(proxyWriter.Status()),
 			"host":   r.Host,
-		}).Infof("service responded with an error")
+		}).Info("service responded with an error")
 
 		if "/favicon.ico" == r.URL.String() {
 			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
@@ -312,7 +312,7 @@ func (proxy *Proxy) Start() chan error {
 	http.HandleFunc("/k8s-alive", func(w http.ResponseWriter, r *http.Request) {
 		log.WithFields(log.Fields{
 			"url": r.URL,
-		}).Infof("liveness probe OK")
+		}).Info("liveness probe OK")
 		w.Write([]byte("200 OK"))
 	})
 
@@ -321,7 +321,7 @@ func (proxy *Proxy) Start() chan error {
 		if proxy.ready {
 			log.WithFields(log.Fields{
 				"url": r.URL,
-			}).Infof("readiness probe OK")
+			}).Info("readiness probe OK")
 			w.Write([]byte("OK"))
 			return
 		}
@@ -382,7 +382,7 @@ func (proxy *Proxy) Start() chan error {
 		log.WithFields(log.Fields{
 			"cert": proxy.SSLCert,
 			"port": proxy.SSLPort,
-		}).Infof("starting SSL passthrough service")
+		}).Info("starting SSL passthrough service")
 		errs <- http.ListenAndServeTLS(
 			fmt.Sprintf(":%d", proxy.SSLPort),
 			"/go/src/github.com/mkenney/k8s-proxy/assets/"+proxy.SSLCert+".crt",
