@@ -66,6 +66,21 @@ func (svc *Service) Conns() map[string]*Conn {
 	return svc.conns
 }
 
+// Host returns this service's hostname
+func (svc *Service) Host() string {
+	return svc.host
+}
+
+// Model returns the k8s service model.
+func (svc *Service) Model() apiv1.Service {
+	return svc.model
+}
+
+// Name returns the k8s service name.
+func (svc *Service) Name() string {
+	return svc.model.Name
+}
+
 // Pass passes traffic through to the requested service.
 func (svc *Service) Pass(b []byte) (int, error) {
 	return 0, nil
