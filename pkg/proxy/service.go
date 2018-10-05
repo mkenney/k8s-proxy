@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
@@ -14,15 +15,15 @@ func NewService(model apiv1.Service, api *k8s.K8S) *Service {
 		api:   api,
 		conns: make(map[string]*Conn),
 		model: model,
-		host:  model.Name + "." + model.Namespace,
+		host:  strings.ToLower(model.Name + "." + model.Namespace),
 	}
 
 	// Create all necessary connections.
 	for _, servicePort := range svc.model.Spec.Ports {
 		// Protocol.
-		protocol := "TCP"
+		protocol := "tcp"
 		if "" != servicePort.Protocol {
-			protocol = string(servicePort.Protocol)
+			protocol = strings.ToLower(string(servicePort.Protocol))
 		}
 
 		// Port for receiving traffic.
@@ -58,6 +59,9 @@ type Service struct {
 
 // Close all network connections for this service.
 func (svc *Service) Close() error {
+	for _, conn := range svc.Conns() {
+		conn.Close()
+	}
 	return nil
 }
 

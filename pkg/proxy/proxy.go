@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -18,12 +19,12 @@ import (
 // New initializes the proxy service and returns a pointer to the service
 // instance. If an error is generated while initializing the kubernetes service
 // scanner an error will be returned.
-func New(
-	port int,
-	tlsCert string,
-) (*Proxy, error) {
+func New() (*Proxy, error) {
 	var err error
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	proxy := &Proxy{
+		ctx:       ctx,
+		stop:      cancelFunc,
 		listeners: make(map[string]*Listener),
 		requestCh: make(chan Request, 15),
 		services:  make(map[string]*Service),
@@ -39,6 +40,8 @@ func New(
 // service.
 type Proxy struct {
 	api     *k8s.K8S
+	ctx     context.Context
+	stop    context.CancelFunc
 	port    int
 	tlsCert string
 
@@ -86,6 +89,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 				conn.Port(),
 				proxy.requestCh,
 			)
+			proxy.listeners[mapKey].Listen(proxy.ctx)
 		}
 		proxy.mux.Unlock()
 	}
@@ -98,14 +102,11 @@ func (proxy *Proxy) ListenAndServe() error {
 
 	// update the k8s-proxy service deployment to reflect network+port requirements
 
-	for _, listener := range proxy.listeners {
-		listener.Listen()
-	}
-
+	ctx, cancel := context.WithCancel(proxy.ctx)
 	for {
 		select {
-		case <-proxy.stopCh:
-			proxy.stopCh <- nil
+		case <-proxy.ctx.Done():
+			cancel()
 			return nil
 		case request := <-proxy.requestCh:
 			// pass the request conn to the correct service
@@ -148,6 +149,8 @@ func (proxy *Proxy) Stop() error {
 
 	proxy.mux.Lock()
 	defer proxy.mux.Unlock()
+
+	proxy.stop()
 
 	// Stop incomming traffic.
 	for _, listener := range proxy.listeners {

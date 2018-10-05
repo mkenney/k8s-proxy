@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -42,7 +43,7 @@ type Listener struct {
 }
 
 // Listen starts the network listener.
-func (l *Listener) Listen() error {
+func (l *Listener) Listen(ctx context.Context) error {
 	var err error
 
 	if Listening == l.status {
@@ -55,8 +56,7 @@ func (l *Listener) Listen() error {
 	go func() {
 		for {
 			select {
-			case <-l.closeCh:
-				l.closeCh <- l.conn.Close()
+			case <-ctx.Done():
 				return
 			default:
 				conn, err := l.conn.Accept()

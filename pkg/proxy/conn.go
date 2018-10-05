@@ -3,6 +3,8 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"strings"
+	"time"
 
 	errs "github.com/bdlm/errors"
 	apiv1 "k8s.io/api/core/v1"
@@ -11,10 +13,10 @@ import (
 // NewConn creates a new reverse proxy to forward traffic through.
 func NewConn(protocol string, host string, port int32, service apiv1.Service) *Conn {
 	return &Conn{
-		address:  fmt.Sprintf("%s:%d", host, port),
-		host:     host,
+		address:  strings.ToLower(fmt.Sprintf("%s:%d", host, port)),
+		host:     strings.ToLower(host),
 		port:     port,
-		protocol: protocol,
+		protocol: strings.ToLower(protocol),
 		service:  service,
 	}
 }
@@ -22,11 +24,15 @@ func NewConn(protocol string, host string, port int32, service apiv1.Service) *C
 // Conn defines a proxy to a service.
 type Conn struct {
 	address  string
-	conn     *net.Conn
 	host     string
 	port     int32
 	protocol string
 	service  apiv1.Service
+}
+
+// Address returns the target network address for this connection.
+func (conn *Conn) Address() string {
+	return conn.address
 }
 
 // Host returns the target network host for this connection.
@@ -36,10 +42,18 @@ func (conn *Conn) Host() string {
 
 // Pass forwards network requests to a service and returns the response.
 func (conn *Conn) Pass(request net.Conn) error {
-	service, err := net.Dial(conn.protocol, conn.address)
+	dialer := &net.Dialer{
+		Deadline:      time.Now().Add(30 * time.Second),
+		LocalAddr:     request.RemoteAddr(),
+		DualStack:     true,
+		FallbackDelay: 50 * time.Millisecond,
+	}
+
+	service, err := dialer.Dial(conn.Protocol(), conn.Address())
 	if nil != err {
 		return err
 	}
+	defer service.Close()
 
 	b := []byte{}
 	r1, err := request.Read(b)
