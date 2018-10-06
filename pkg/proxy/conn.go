@@ -1,29 +1,41 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	errs "github.com/bdlm/errors"
+	"github.com/mkenney/k8s-proxy/internal/codes"
 	apiv1 "k8s.io/api/core/v1"
 )
 
 // NewConn creates a new reverse proxy to forward traffic through.
-func NewConn(protocol string, host string, port int32, service apiv1.Service) *Conn {
-	return &Conn{
+func NewConn(ctx context.Context, protocol string, host string, port int32, service apiv1.Service) *Conn {
+	conn := &Conn{
 		address:  strings.ToLower(fmt.Sprintf("%s:%d", host, port)),
 		host:     strings.ToLower(host),
 		port:     port,
 		protocol: strings.ToLower(protocol),
 		service:  service,
 	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			conn.done = true
+		}
+	}()
+
+	return conn
 }
 
 // Conn defines a proxy to a service.
 type Conn struct {
 	address  string
+	done     bool
 	host     string
 	port     int32
 	protocol string
@@ -42,6 +54,10 @@ func (conn *Conn) Host() string {
 
 // Pass forwards network requests to a service and returns the response.
 func (conn *Conn) Pass(request net.Conn) error {
+	if conn.done {
+		return errs.New(codes.ContextCancelled, "this context has been cancelled")
+	}
+
 	dialer := &net.Dialer{
 		Deadline:      time.Now().Add(30 * time.Second),
 		LocalAddr:     request.RemoteAddr(),

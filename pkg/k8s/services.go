@@ -10,17 +10,13 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-/*
-ChangeSet holds the beofre and after set of k8s services.
-*/
+// ChangeSet holds the beofre and after set of k8s services.
 type ChangeSet struct {
 	Added   map[string]apiv1.Service
 	Removed map[string]apiv1.Service
 }
 
-/*
-Services maintains an up to date list of available kubernetes services.
-*/
+// Services maintains an up to date list of available kubernetes services.
 type Services struct {
 	client    corev1.ServiceInterface
 	interrupt chan bool
@@ -29,24 +25,18 @@ type Services struct {
 	svcMap    chan (map[string]apiv1.Service)
 }
 
-/*
-Map returns the current map of running services.
-*/
+// Map returns the current map of running services.
 func (services *Services) Map() map[string]apiv1.Service {
 	return <-services.svcMap
 }
 
-/*
-Stop ends the serviceWatcher goroutine.
-*/
+// Stop ends the serviceWatcher goroutine.
 func (services *Services) Stop() {
 	services.interrupt <- true && <-services.interrupt
 }
 
-/*
-Watch starts the service watcher goroutine. 'delay' is the amount of
-time to wait between updates to the services map.
-*/
+// Watch starts the service watcher goroutine. 'delay' is the amount of
+// time to wait between updates to the services map.
 func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 	services.interrupt = make(chan bool)
 	changeSetCh := make(chan ChangeSet)
@@ -62,6 +52,7 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 			case <-services.interrupt:
 				defer close(changeSetCh)
 				defer close(services.interrupt)
+				services.interrupt <- true
 				break
 
 			default:
@@ -121,9 +112,7 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 	return changeSetCh
 }
 
-/*
-diffServices returns the deltas between cur and new as a ChangeSet.
-*/
+// diffServices returns the deltas between cur and new as a ChangeSet.
 func diffServices(cur, new map[string]apiv1.Service) ChangeSet {
 	changes := ChangeSet{
 		Added:   map[string]apiv1.Service{},

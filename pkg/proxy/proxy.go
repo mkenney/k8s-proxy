@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
-	errs "github.com/bdlm/errors"
 	"github.com/bdlm/log"
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
 	apiv1 "k8s.io/api/core/v1"
@@ -23,11 +23,11 @@ func New() (*Proxy, error) {
 	var err error
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	proxy := &Proxy{
-		ctx:       ctx,
-		stop:      cancelFunc,
-		listeners: make(map[string]*Listener),
-		requestCh: make(chan Request, 15),
-		services:  make(map[string]*Service),
+		ctx:           ctx,
+		cancelContext: cancelFunc,
+		listeners:     make(map[string]*Listener),
+		requestCh:     make(chan Request, 15),
+		services:      make(map[string]*Service),
 	}
 	proxy.api, err = k8s.New()
 	if nil != err {
@@ -39,11 +39,11 @@ func New() (*Proxy, error) {
 // Proxy holds configuration data and methods for running the kubernetes proxy
 // service.
 type Proxy struct {
-	api     *k8s.K8S
-	ctx     context.Context
-	stop    context.CancelFunc
-	port    int
-	tlsCert string
+	api           *k8s.K8S
+	cancelContext context.CancelFunc
+	ctx           context.Context
+	port          int
+	tlsCert       string
 
 	requestCh chan Request
 	svcCh     chan apiv1.Service
@@ -55,7 +55,7 @@ type Proxy struct {
 }
 
 // AddService adds a service to the passthrough map.
-func (proxy *Proxy) AddService(service apiv1.Service) error {
+func (proxy *Proxy) AddService(ctx context.Context, service apiv1.Service) error {
 	if service.Name == "k8s-proxy" {
 		return fmt.Errorf("'k8s-proxy' cannot be a proxy target, skipping")
 	}
@@ -70,7 +70,7 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 	// service.
 	proxy.mux.Lock()
 	if _, ok := proxy.services[host]; !ok {
-		proxy.services[host] = NewService(service, proxy.api)
+		proxy.services[host] = NewService(ctx, service, proxy.api)
 	} else {
 		proxy.services[host].Refresh()
 	}
@@ -98,26 +98,33 @@ func (proxy *Proxy) AddService(service apiv1.Service) error {
 }
 
 // ListenAndServe starts the traffic manager.
-func (proxy *Proxy) ListenAndServe() error {
+func (proxy *Proxy) ListenAndServe(ctx context.Context) error {
 
 	// update the k8s-proxy service deployment to reflect network+port requirements
 
-	ctx, cancel := context.WithCancel(proxy.ctx)
+	// Start the change watcher and the updater. This will block until
+	// service data is available from the Kubernetes API.
+	changes := proxy.api.Services.Watch(5 * time.Second)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+			case delta := <-changes:
+				proxy.UpdateServices(ctx, delta)
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-proxy.ctx.Done():
-			cancel()
 			return nil
+
 		case request := <-proxy.requestCh:
 			// pass the request conn to the correct service
 			log.Debug(request)
-
-		// add new services to the
-		case svc := <-proxy.svcCh:
-			err := proxy.AddService(svc)
-			if nil != err {
-				return err
-			}
 		}
 	}
 }
@@ -144,36 +151,15 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 
 // Stop causes the proxy to shutdown. In a kubernetes cluster this will
 // cause the container to be restarted.
-func (proxy *Proxy) Stop() error {
-	e := errs.Err{}
-
+func (proxy *Proxy) Stop() {
 	proxy.mux.Lock()
 	defer proxy.mux.Unlock()
 
-	proxy.stop()
+	// Stop the k8s service watcher.
+	proxy.api.Services.Stop()
 
-	// Stop incomming traffic.
-	for _, listener := range proxy.listeners {
-		err := listener.Close()
-		if nil != err {
-			e = e.With(err, "error stopping '%s:%s' listener", listener.Protocol(), listener.Port())
-		}
-	}
-
-	// Stop service responses.
-	for _, service := range proxy.services {
-		err := service.Close()
-		if nil != err {
-			e = e.With(err, "error stopping '%s' service", service.Host())
-		}
-	}
-
-	// Stop the request manager.
-	proxy.stopCh <- nil
-	err := <-proxy.stopCh
-	if nil != err {
-		e = e.With(err, "request listener returned an error on shutdown")
-	}
+	// Cancel the context thread for this instance.
+	proxy.cancelContext()
 
 	// Drain orphaned requests and close the channel.
 	for 0 < len(proxy.requestCh) {
@@ -186,25 +172,24 @@ func (proxy *Proxy) Stop() error {
 		<-proxy.svcCh
 	}
 	close(proxy.svcCh)
-
-	// Stop the k8s service watcher.
-	proxy.api.Services.Stop()
-
-	if len(e) > 0 {
-		return e
-	}
-	return nil
 }
 
 // UpdateServices processes changes to the set of available services in the
 // cluster.
-func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
+func (proxy *Proxy) UpdateServices(ctx context.Context, delta k8s.ChangeSet) {
+	ctx, cancel := context.WithCancel(ctx)
 	for _, service := range delta.Added {
-		proxy.AddService(service)
+		proxy.AddService(ctx, service)
 	}
 	for _, service := range delta.Removed {
 		proxy.RemoveService(service)
 	}
+	go func() {
+		select {
+		case <-proxy.ctx.Done():
+			cancel()
+		}
+	}()
 }
 
 // faviconBytes stores the favicon.ico data.

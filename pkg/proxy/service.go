@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -10,7 +11,7 @@ import (
 )
 
 // NewService creates a new reverse proxy to forward traffic through.
-func NewService(model apiv1.Service, api *k8s.K8S) *Service {
+func NewService(ctx context.Context, model apiv1.Service, api *k8s.K8S) *Service {
 	svc := &Service{
 		api:   api,
 		conns: make(map[string]*Conn),
@@ -37,6 +38,7 @@ func NewService(model apiv1.Service, api *k8s.K8S) *Service {
 
 		// Add a connection for this port
 		svc.conns[fmt.Sprintf("%s:%d", protocol, port)] = NewConn(
+			ctx,
 			protocol,
 			svc.host,
 			port,
@@ -55,14 +57,6 @@ type Service struct {
 
 	mux   sync.Mutex
 	conns map[string]*Conn
-}
-
-// Close all network connections for this service.
-func (svc *Service) Close() error {
-	for _, conn := range svc.Conns() {
-		conn.Close()
-	}
-	return nil
 }
 
 // Conns returns the network connection map

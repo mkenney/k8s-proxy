@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	errs "github.com/bdlm/errors"
 	"github.com/bdlm/log"
@@ -80,30 +79,6 @@ func (l *Listener) Addr() net.Addr {
 		return nil
 	}
 	return l.conn.Addr()
-}
-
-// Close stops the network listener and removes the port binding from the
-// k8s service.
-func (l *Listener) Close() error {
-	var err error
-
-	// close the listener and end the listen loop.
-	l.closeCh <- nil
-	select {
-	case <-time.After(5 * time.Second):
-		err = errs.New(0, "timeout exceeded while closing listener '%s:%s'", l.Protocol(), l.Port())
-	case err = <-l.closeCh:
-	}
-
-	// do something?
-	if nil != err {
-		log.Error(err)
-	}
-
-	// modify the k8s-proxy service to remove the closed protocol+port...
-
-	l.status = Closed
-	return err
 }
 
 // Status returns whether the network connection has been closed.

@@ -6,10 +6,13 @@ import (
 )
 
 const (
-	// ErrUnspecified - 1000: The error code was unspecified
-	ErrUnspecified std.Code = iota + 1000
+	// Unspecified - 1000: The error code was unspecified.
+	Unspecified std.Code = iota + 1000
+
+	// ContextCancelled - The referenced context has been cancelled.
+	ContextCancelled
 )
 
 func init() {
-	errs.Codes[ErrUnspecified] = errs.ErrCode{Ext: "An unknown error occurred", Int: "An unknown error occurred", HTTP: 500}
+	errs.Codes[Unspecified] = errs.ErrCode{Ext: "An unknown error occurred", Int: "An unknown error occurred", HTTP: 500}
 }

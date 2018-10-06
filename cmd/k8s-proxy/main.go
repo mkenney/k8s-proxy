@@ -10,28 +10,20 @@ import (
 	"github.com/mkenney/k8s-proxy/pkg/proxy"
 )
 
-/*
-K8SPROXYPORT defines the exposed k8s-proxy port.
-*/
+// K8SPROXYPORT defines the exposed k8s-proxy port.
 var K8SPROXYPORT int
 
-/*
-K8SPROXYSSLPORT defines the exposed k8s-proxy SSL port.
-*/
+// K8SPROXYSSLPORT defines the exposed k8s-proxy SSL port.
 var K8SPROXYSSLPORT int
 
-/*
-K8SPROXYSSLCERT defines the name of an SSL certificate located in the
-/ssl directory. Adding a certificate to the proxy requires buiding your
-own image (or executing the /test/start-dev.sh script which volmounts
-everything).
-*/
+// K8SPROXYSSLCERT defines the name of an SSL certificate located in the
+// /ssl directory. Adding a certificate to the proxy requires buiding your
+// own image (or executing the /test/start-dev.sh script which volmounts
+// everything).
 var K8SPROXYSSLCERT string
 
-/*
-K8SPROXYTIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
-(900 seconds).
-*/
+// K8SPROXYTIMEOUT defines the proxy timeout. Cannot be greater than 15 minutes
+// (900 seconds).
 var K8SPROXYTIMEOUT int
 
 func init() {
