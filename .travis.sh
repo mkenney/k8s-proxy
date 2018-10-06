@@ -13,6 +13,9 @@ exit_code=0
 #    exit 10
 #fi
 
+go get -v github.com/golang/lint/golint
+[ "0" = "$?" ] || exit 10
+
 for dir in $(go list ./... | grep -v vendor); do
     echo "golint $dir"
     result=$(GO111MODULE=on golint $dir)
@@ -24,7 +27,7 @@ done
 
 rm -f coverage.txt
 for dir in $(go list ./... | grep -v vendor); do
-    go test -mod=vendor -timeout=20s -coverprofile=profile.out $dir
+    go test -timeout=20s -coverprofile=profile.out $dir
     exit_code=$?
     if [ "0" != "$exit_code" ]; then
         exit 30
