@@ -13,7 +13,7 @@ branches:
     only:
         - master
 env:
-    - GO111MODULE=on GOFLAGS=-mod=vendor
+    - GO111MODULE=on GOFLAGS=-mod-vendor
 language: go
 go_import_path: github.com/mkenney/k8s-proxy
 go:
