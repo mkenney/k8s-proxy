@@ -1,0 +1,32 @@
+module github.com/mkenney/k8s-proxy/cmd/k8s-proxy
+
+require (
+	github.com/bdlm/log v0.1.13
+	github.com/bdlm/std v0.0.0-20180922040903-fd3b596111c7
+	github.com/ghodss/yaml v1.0.0
+	github.com/gogo/protobuf v1.0.0
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/protobuf v1.0.0
+	github.com/google/btree v0.0.0-20180124185431-e89373fe6b4a
+	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
+	github.com/googleapis/gnostic v0.1.0
+	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7
+	github.com/json-iterator/go v0.0.0-20180315132816-ca39e5af3ece
+	github.com/juju/ratelimit v1.0.1
+	github.com/mkenney/k8s-proxy v0.0.0-20181002035311-6780f6812e95
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+	github.com/modern-go/reflect2 v0.0.0-20180228065516-1df9eeb2bb81
+	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c
+	github.com/peterbourgon/diskv v2.0.1+incompatible
+	github.com/pkg/errors v0.8.0
+	github.com/spf13/pflag v1.0.1
+	golang.org/x/crypto v0.0.0-20180426230345-b49d69b5da94
+	golang.org/x/net v0.0.0-20180420171651-5f9ae10d9af5
+	golang.org/x/sys v0.0.0-20180427151831-cbbc999da32d
+	golang.org/x/text v0.3.0
+	gopkg.in/inf.v0 v0.9.1
+	gopkg.in/yaml.v2 v2.2.1
+	k8s.io/api v0.0.0-20180427022230-e8df68e6b4a0
+	k8s.io/apimachinery v0.0.0-20180427021847-83d7ef28e0fa
+	k8s.io/client-go v6.0.0+incompatible
+)
