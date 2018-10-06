@@ -1,17 +1,17 @@
 #!/bin/sh
 set -e
 
-export GO111MODULE=on
-export GOFLAGS=-mod-vendor
+#export GO111MODULE=on
+#export GOFLAGS=-mod-vendor
 
 WORKDIR=$(pwd)
 exit_code=0
 
-echo "go build ./..."
-go build  ./...
-if [ "0" != "$?" ]; then
-    exit 10
-fi
+#echo "go build ./..."
+#go build  ./...
+#if [ "0" != "$?" ]; then
+#    exit 10
+#fi
 
 for dir in $(go list ./... | grep -v vendor); do
     echo "golint $dir"
