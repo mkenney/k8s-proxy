@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -70,19 +71,15 @@ func init() {
 }
 
 func main() {
-	proxy, err := proxy.New(
-		K8SPROXYPORT,
-		K8SPROXYSSLCERT,
-		K8SPROXYSSLPORT,
-		K8SPROXYTIMEOUT,
-	)
+	proxy, err := proxy.New()
 	if nil != err {
 		log.Fatal(err)
 	}
 
-	errChan := proxy.Start()
-	proxy.Wait() // Block until the proxy service is ready
-	log.Infof("ready to serve traffic")
+	errCh := make(chan error)
+	ctx := context.Background()
+	go func() { errCh <- proxy.ListenAndServe(ctx, errCh) }()
+	log.Infof("services are starting")
 
 	// Shutdown when a signal is received.
 	go func() {
@@ -91,13 +88,12 @@ func main() {
 		sig := <-c
 		log.Infof("'%s' signal received, shutting down proxy", sig)
 		proxy.Stop()
-		errChan <- fmt.Errorf("'%s' signal received, proxy shut down", sig)
+		errCh <- fmt.Errorf("'%s' signal received, proxy shut down", sig)
 	}()
 
-	for err := range errChan {
-		if nil != err {
-			proxy.Stop()
-			log.Fatal(err)
-		}
+	err = <-errCh
+	if nil != err {
+		proxy.Stop()
+		log.Fatal(err)
 	}
 }

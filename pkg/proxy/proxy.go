@@ -98,15 +98,17 @@ func (proxy *Proxy) AddService(ctx context.Context, service apiv1.Service) error
 }
 
 // ListenAndServe starts the traffic manager.
-func (proxy *Proxy) ListenAndServe(ctx context.Context) error {
+func (proxy *Proxy) ListenAndServe(ctx context.Context, errCh chan error) {
+	// configure context and exit strategy
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer func() { errCh <- ctx.Err() }()
 
 	// update the k8s-proxy service deployment to reflect network+port requirements
 
 	// Start the change watcher and the updater. This will block until
 	// service data is available from the Kubernetes API.
 	changes := proxy.api.Services.Watch(5 * time.Second)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	go func() {
 		for {
 			select {
@@ -120,8 +122,7 @@ func (proxy *Proxy) ListenAndServe(ctx context.Context) error {
 	for {
 		select {
 		case <-proxy.ctx.Done():
-			return nil
-
+			return
 		case request := <-proxy.requestCh:
 			// pass the request conn to the correct service
 			log.Debug(request)
