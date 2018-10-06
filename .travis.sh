@@ -23,7 +23,7 @@ done
 
 rm -f coverage.txt
 for dir in $(go list ./... | grep -v vendor); do
-    GO111MODULE=on go test -timeout 20s -coverprofile=profile.out $dir
+    GO111MODULE=on go test -mod=vendor -timeout=20s -coverprofile=profile.out $dir
     exit_code=$?
     if [ "0" != "$exit_code" ]; then
         exit 3
