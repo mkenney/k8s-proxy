@@ -14,7 +14,7 @@ for dir in $(go list ./... | grep -v vendor); do
     result=$(GO111MODULE=on golint $dir)
     if [ "" != "$result" ]; then
         echo $result
-        exit_code=5
+        exit_code=2
     fi
     if [ "0" != "$exit_code" ]; then
         exit $exit_code
@@ -26,7 +26,7 @@ for dir in $(go list ./... | grep -v vendor); do
     GO111MODULE=on go test -timeout 20s -coverprofile=profile.out $dir
     exit_code=$?
     if [ "0" != "$exit_code" ]; then
-        exit $exit_code
+        exit 3
     fi
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt
