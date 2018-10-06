@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-#export GO111MODULE=on
-#export GOFLAGS=-mod-vendor
+export GO111MODULE=on
+export GOFLAGS=-mod-vendor
 
 WORKDIR=$(pwd)
 exit_code=0
