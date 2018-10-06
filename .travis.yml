@@ -12,7 +12,8 @@ install: true
 branches:
     only:
         - master
-
+env:
+    - GO111MODULE=on
 language: go
 go_import_path: github.com/mkenney/k8s-proxy
 go:
