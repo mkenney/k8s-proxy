@@ -7,6 +7,7 @@ require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
+	github.com/golang/lint v0.0.0-20180702182130-06c8688daad7 // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
@@ -16,10 +17,12 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20181001203147-e3636079e1a4 // indirect
+	golang.org/x/lint v0.0.0-20180702182130-06c8688daad7 // indirect
 	golang.org/x/net v0.0.0-20181005035420-146acd28ed58 // indirect
 	golang.org/x/oauth2 v0.0.0-20181003184128-c57b0facaced // indirect
 	golang.org/x/sys v0.0.0-20181005133103-4497e2df6f9e // indirect
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
+	golang.org/x/tools v0.0.0-20181006002542-f60d9635b16a // indirect
 	google.golang.org/appengine v1.2.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.2.1 // indirect
