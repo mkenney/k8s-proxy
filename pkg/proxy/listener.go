@@ -9,11 +9,15 @@ import (
 	"github.com/bdlm/log"
 )
 
+// ListenerStatus defines the state of the listener.
 type ListenerStatus int
 
 const (
+	// Ready represents the initial ready state.
 	Ready ListenerStatus = iota
+	// Listening represents the active state.
 	Listening
+	// Closed represents the closed state.
 	Closed
 )
 
