@@ -14,15 +14,9 @@ branches:
         - master
 
 language: go
-go_import_path: github.com/mkenney/go-chrome
+go_import_path: github.com/mkenney/k8s-proxy
 go:
     - 1.11.x
-    - tip
-
-ignore:
-    - "cmd/.*"
-    - "test/.*"
-    - "pkg/vendor/.*"
 
 script:
     - ./.travis.sh
