@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+GO111MODULE=on
+GOFLAGS=-mod-vendor
+
 WORKDIR=$(pwd)
 exit_code=0
 
