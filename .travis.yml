@@ -1,6 +1,6 @@
 notifications:
     slack:
-        secure: JKpEAaObH9gmEEva1vXY1MfvOhhHEWkL1ujnGPgxoInrZQN3zg0ppPX6zjZyTNsOF00u/SO09xPFrKqKnY57Ies119fuM91ruoXc14vsBtqSuvVETZLTaxlhB+AVSaSq7vs3gX+DW2eB5rknbGKdCnVCQ523xIABr1MFjzAfWx6JuzgO5STe2WTjTfPK9A2Kh4qR5TdT7EvoyeiyW6kY+j5ZGtYIBNTMDgWxzlrYN0McaNyjlBuj2FDv4og8hf8DuIPJa4FkBntXBZZK+IPvAM8SRko+SBK93629KgEK8WUzHyojggKkJaxoX3f9LnfpAYcfpew7G9+uCu8vtrFBs3zlu2yeSyL+gRY08zxAmRV9rB0cu+4SyAtwcJyHoW3wPYK3s4aZ9SO7jFrgFNPQ1Gs93Tnvz0brKOXKDwAsi9JmgC76gV8kVHoF3VxvMTpgmp5amybpmxrWTJgMEh9mKkAzjucPOi4fPldjPpxgWs9w2qyANbfTYNwWm+atN4qyI7qsCfEb8of/TduQ1RKYGB1oX+71uc3OYscB/24rnF8oadtA7YOJbdT52NcNPy0VhLoTKNt6i0b5gw2Zos36eW2E+ktGfXopmJah1unL6wn5NjDjC98l//ulrU11CzpQKgUwNGf2eanlFLRmeUTuCPNGJeQka4cGTRwwB5ZlI5w=
+        secure: fMsf7qV6+SL18DQSkAqQX4yRsgiKOw5JpFlMhIRosJH3A8739/9E4feZE7cpBKuOb7/x50/Dd4hjFf7sTGSpqd65U7xDQTEOtEPwAUWMAjoXuJhKjtU1IyXssaEMXHhHF0Advz9ekq/cXIYqbWKcLo9hxnyZS8YAHBL/r5Cjm0/aIvmcvFnlcZCq2FG2MUaGm/wG8bSrJ84eCwIcN3lu1UD6/Z3Y3btmXE0/HGCRbWTsfIjn1F+xrfK/GCxr01vLsZGRm3ADRi+2rhOemPmgM0hGa9IiStzIKPVh0rN2M6gSFgczrYLJbrwujUCx+KgRJt+kR4D0J7rMxYGQIAA655nilXhzFxknwY4f8cRszJfEJe60oFOh4BruDR+d0IjO2DgLWhebqQS05lUlXV2L5GDTogxrl40nw661V7HewNLYFcykAKg4W1QXiaqhK+06pweRaTDPmqIHDJa2sUMupb8W3AMqOrBPX2wY73PCZGZzabesKeyk0oL6HOEgCdEH1m/uri92tNPX/GfWKQl0zgBBZmOyf8UcIWDQWtVPVuOwUi9dhn5/8SoQ2GKld9vlh3G8aDCwxjlW3NVJ67kv8v6fMV3qGZWqLQorDVwGLhlUsyApI0HR6QXCJHVmOBk3HP6wWvztJi6oJF88extJ0AAWTExD1zXUbMT/MfQJvQQ=
 
 git:
     depth: 1
@@ -14,13 +14,18 @@ branches:
         - master
 
 language: go
-go_import_path: github.com/mkenney/k8s-proxy
+go_import_path: github.com/mkenney/go-chrome
 go:
     - 1.11.x
+    - tip
+
+ignore:
+    - "cmd/.*"
+    - "test/.*"
+    - "pkg/vendor/.*"
 
 script:
     - ./.travis.sh
-    - docker build -t mkenney/k8s-proxy:ci-build .
 
 after_success:
     - bash <(curl -s https://codecov.io/bash)
