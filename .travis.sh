@@ -11,7 +11,7 @@ env GO111MODULE=on go build  ./...
 
 for dir in $(go list ./... | grep -v vendor); do
     echo "golint $dir"
-    result=$(golint $dir)
+    result=$(GO111MODULE=on golint $dir)
     if [ "" != "$result" ]; then
         echo $result
         exit_code=5
@@ -23,7 +23,7 @@ done
 
 rm -f coverage.txt
 for dir in $(go list ./... | grep -v vendor); do
-    go test -timeout 20s -coverprofile=profile.out $dir
+    GO111MODULE=on go test -timeout 20s -coverprofile=profile.out $dir
     exit_code=$?
     if [ "0" != "$exit_code" ]; then
         exit $exit_code
