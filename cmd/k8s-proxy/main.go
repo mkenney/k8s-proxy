@@ -78,7 +78,7 @@ func main() {
 
 	errCh := make(chan error)
 	ctx := context.Background()
-	go func() { errCh <- proxy.ListenAndServe(ctx, errCh) }()
+	go func() { proxy.ListenAndServe(ctx, errCh) }()
 	log.Infof("services are starting")
 
 	// Shutdown when a signal is received.
