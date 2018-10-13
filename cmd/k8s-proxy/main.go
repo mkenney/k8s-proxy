@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
+	"time"
 
 	"github.com/bdlm/log"
 	"github.com/mkenney/k8s-proxy/pkg/proxy"
@@ -28,32 +27,6 @@ var K8SPROXYSSLCERT string
 var K8SPROXYTIMEOUT int
 
 func init() {
-	var err error
-
-	K8SPROXYPORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_PORT"))
-	if nil != err || K8SPROXYPORT > 65535 {
-		log.Warnf("invalid K8S_PROXY_PORT env '%d', defaulting to port 80", K8SPROXYPORT)
-		K8SPROXYPORT = 80
-	}
-
-	K8SPROXYSSLCERT = os.Getenv("K8S_PROXY_SSL_CERT")
-	if "" == K8SPROXYSSLCERT {
-		log.Warnf("invalid K8S_PROXY_SSL_CERT env '%d', defaulting to 'k8s-proxy'", K8SPROXYSSLPORT)
-		K8SPROXYSSLCERT = "k8s-proxy"
-	}
-
-	K8SPROXYSSLPORT, err = strconv.Atoi(os.Getenv("K8S_PROXY_SSL_PORT"))
-	if nil != err || K8SPROXYSSLPORT > 65535 {
-		log.Warnf("invalid K8S_PROXY_SSL_PORT env '%d', defaulting to port 443", K8SPROXYSSLPORT)
-		K8SPROXYSSLPORT = 443
-	}
-
-	K8SPROXYTIMEOUT, err = strconv.Atoi(os.Getenv("K8S_PROXY_TIMEOUT"))
-	if nil != err || K8SPROXYTIMEOUT > 900 || K8SPROXYTIMEOUT < 0 {
-		log.Warnf("invalid K8S_PROXY_TIMEOUT env '%d', defaulting to 10 seconds", K8SPROXYTIMEOUT)
-		K8SPROXYTIMEOUT = 10
-	}
-
 	// log level and format
 	levelFlag := os.Getenv("LOG_LEVEL")
 	if "" == levelFlag {
@@ -61,7 +34,7 @@ func init() {
 	}
 	level, err := log.ParseLevel(levelFlag)
 	if nil != err {
-		log.Warnf("Could not parse log level flag '%s', setting to 'debug'...", err.Error())
+		log.WithField("err", err).Warnf("%-v", err)
 		level, _ = log.ParseLevel("debug")
 	}
 	log.SetFormatter(&log.TextFormatter{
@@ -71,29 +44,27 @@ func init() {
 }
 
 func main() {
-	proxy, err := proxy.New()
+	proxy, err := proxy.New(context.Background())
 	if nil != err {
-		log.Fatal(err)
+		log.Fatalf("%-v", err)
 	}
 
-	errCh := make(chan error)
-	ctx := context.Background()
-	go func() { proxy.ListenAndServe(ctx, errCh) }()
-	log.Infof("services are starting")
+	log.Infof("starting services...")
+	proxy.ListenAndServe()
 
 	// Shutdown when a signal is received.
+	c := make(chan os.Signal, 1)
+	signal.Notify(c)
 	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c)
 		sig := <-c
 		log.Infof("'%s' signal received, shutting down proxy", sig)
 		proxy.Stop()
-		errCh <- fmt.Errorf("'%s' signal received, proxy shut down", sig)
 	}()
 
-	err = <-errCh
-	if nil != err {
+	// debug
+	select {
+	case <-time.After(10 * time.Second):
+		log.Infof("stopping services...")
 		proxy.Stop()
-		log.Fatal(err)
 	}
 }

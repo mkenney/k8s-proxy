@@ -11,6 +11,15 @@ const (
 
 	// ContextCancelled - The referenced context has been cancelled.
 	ContextCancelled
+
+	// NetworkListenerExists - Network listner already exists, skipping.
+	NetworkListenerExists
+
+	// NetworkListenerListening - Network listner already running, skipping.
+	NetworkListenerListening
+
+	// NetworkListenerFailed - Could not open network listener.
+	NetworkListenerFailed
 )
 
 func init() {

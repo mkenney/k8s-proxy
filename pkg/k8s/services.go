@@ -32,7 +32,8 @@ func (services *Services) Map() map[string]apiv1.Service {
 
 // Stop ends the serviceWatcher goroutine.
 func (services *Services) Stop() {
-	services.interrupt <- true && <-services.interrupt
+	services.interrupt <- true
+	<-services.interrupt
 }
 
 // Watch starts the service watcher goroutine. 'delay' is the amount of
@@ -43,6 +44,7 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 	readyCh := make(chan bool)
 
 	go func() {
+		log.Info("starting the service watcher...")
 		last := time.Now()
 		serviceMap := make(map[string]apiv1.Service)
 
@@ -50,6 +52,7 @@ func (services *Services) Watch(delay time.Duration) chan ChangeSet {
 			select {
 			// Stop watching for changes.
 			case <-services.interrupt:
+				log.Info("stopping the service watcher...")
 				defer close(changeSetCh)
 				defer close(services.interrupt)
 				services.interrupt <- true

@@ -25,11 +25,11 @@ spec:
         -   port: 80
             targetPort: 80
             protocol: TCP
-            name: k8s-proxy
+            name: tcp-80
         -   port: 443
             targetPort: 443
             protocol: TCP
-            name: k8s-proxy-ssl
+            name: tcp-443
 ---
 # Deployment
 kind: Deployment
@@ -77,24 +77,24 @@ spec:
                         requests:
                             cpu: 0.1
                             memory: 128Mi
-                    livenessProbe:
-                        httpGet:
-                            path: "/k8s-alive"
-                            port: 80
-                            scheme: HTTP
-                        failureThreshold: 2
-                        initialDelaySeconds: 2
-                        periodSeconds: 10
-                        timeoutSeconds: 5
-                    readinessProbe:
-                        httpGet:
-                            path: "/k8s-ready"
-                            port: 80
-                            scheme: HTTP
-                        failureThreshold: 2
-                        initialDelaySeconds: 5
-                        periodSeconds: 10
-                        timeoutSeconds: 5
+                    #livenessProbe:
+                    #    httpGet:
+                    #        path: "/k8s-alive"
+                    #        port: 80
+                    #        scheme: HTTP
+                    #    failureThreshold: 2
+                    #    initialDelaySeconds: 2
+                    #    periodSeconds: 10
+                    #    timeoutSeconds: 5
+                    #readinessProbe:
+                    #    httpGet:
+                    #        path: "/k8s-ready"
+                    #        port: 80
+                    #        scheme: HTTP
+                    #    failureThreshold: 2
+                    #    initialDelaySeconds: 5
+                    #    periodSeconds: 10
+                    #    timeoutSeconds: 5
                     volumeMounts:
                         -   mountPath: /go/src/github.com/mkenney/k8s-proxy/assets
                             name: assetpath

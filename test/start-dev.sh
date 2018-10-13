@@ -76,7 +76,7 @@ if [ "build" = "$1" ] || [ "--build" = "$1" ]; then
     fi
 fi
 
-cd $workdir/../pkg
+cd $workdir/../cmd/k8s-proxy
 echo "building k8s-proxy binary"
 GOOS=linux go build -o $workdir/bin/k8s-proxy
 if [ "0" != "$?" ]; then

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	errs "github.com/bdlm/errors"
+	"github.com/bdlm/log"
 	"github.com/mkenney/k8s-proxy/internal/codes"
 	apiv1 "k8s.io/api/core/v1"
 )
@@ -17,19 +19,35 @@ func NewConn(ctx context.Context, protocol string, host string, port int32, serv
 	conn := &Conn{
 		address:  strings.ToLower(fmt.Sprintf("%s:%d", host, port)),
 		host:     strings.ToLower(host),
+		id:       connCounterNext(),
 		port:     port,
 		protocol: strings.ToLower(protocol),
 		service:  service,
 	}
 
 	go func() {
+		log.Infof("starting connection %d: %s...", conn.id, conn.address)
+		ctx, cancel := context.WithCancel(ctx)
 		select {
 		case <-ctx.Done():
+			log.Infof("closing connection %d: %s...", conn.id, conn.address)
 			conn.done = true
+			cancel()
 		}
 	}()
 
 	return conn
+}
+
+var connCounterMux sync.Mutex
+var connCounter int
+
+func connCounterNext() int {
+	connCounterMux.Lock()
+	connCounter++
+	ret := connCounter
+	connCounterMux.Unlock()
+	return ret
 }
 
 // Conn defines a proxy to a service.
@@ -37,6 +55,7 @@ type Conn struct {
 	address  string
 	done     bool
 	host     string
+	id       int
 	port     int32
 	protocol string
 	service  apiv1.Service

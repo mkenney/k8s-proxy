@@ -1,0 +1,134 @@
+#!/bin/bash
+
+WORKDIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
+TESTDIR=${WORKDIR}/test
+CMDDIR=${WORKDIR}/cmd
+PKGDIR=${WORKDIR}/pkg
+IMAGE==mkenney/k8s-proxy:latest
+DEPLOYMENT=k8s-proxy
+
+# colors
+WARN=$'\033[38;5;1m'
+EMPH=$'\033[38;5;172m'
+NORM=$'\033[0m'
+
+# exit codes
+EX_CANCEL=101
+
+# Parse arguments
+buildImage=0
+pullImage=0
+buildSrc=0
+for var in "$@"; do
+    if [ "--build" = "$var" ]; then
+        buildImage=1
+    fi
+    if [ "--pull" = "$var" ]; then
+        pullImage=1
+    fi
+    if [ "--test" = "$var" ]; then
+        buildSrc=1
+    fi
+done
+
+echo "
+USAGE: ./start.sh [--build] [--pull] [--docker] [--k8s]
+
+    --build     Build the docker image(s)
+    --pull      Pull the latest production build
+    --docker    Start the service using docker-compose
+    --k8s       Start the service using kubectl
+"
+
+k8s_context=$(kubectl config view -o=jsonpath='{.current-context}')
+if [ "k8s-local" != "$k8s_context" ] && [ "docker-for-desktop" != "$k8s_context" ]; then
+    printf "
+This script will destroy and recreate the $DEPLOYMENT service in the ${EMPH}'${k8s_context}'${NORM}
+environment using the \`helm\` command.
+
+${WARN}Please make sure you are configured for the intended environment!${NORM}
+
+Current context: ${EMPH}'${k8s_context}'${NORM}
+
+"
+    read -p "Do you want to continue? [y/N]: " EXECUTE
+    echo
+    if [ "y" != "$EXECUTE" ] && [ "Y" != "$EXECUTE" ]; then
+        exit $EX_CANCEL
+    fi
+fi
+
+# Build image if specified
+if [ "1" = "$buildImage" ]; then
+    printf "building image...\n\n"
+    docker build -t $IMAGE $WORKDIR
+    exit_code=$?
+    if [ "0" != "$exit_code" ]; then
+        echo "  building image failed."
+        exit $exit_code
+    fi
+
+elif [ "1" = "$pullImage" ]; then
+    printf "fetching latest image...\n\n"
+    docker pull $IMAGE
+    exit_code=$?
+    if [ "0" != "$exit_code" ]; then
+        echo "  fetching image failed."
+        exit $exit_code
+    fi
+fi
+
+if [ "1" = "$buildSrc" ]; then
+    printf "building proxy binary...\n\n"
+    cd $WORKDIR/cmd/k8s-proxy
+    GOOS=linux go build -o $WORKDIR/test/bin/k8s-proxy
+    exit_code=$?
+    if [ "0" != "$exit_code" ]; then
+        echo "  building image failed."
+        exit $exit_code
+    fi
+    WORKDIR=$WORKDIR/test
+fi
+
+echo
+echo "removing k8s-proxy deployment and service..."
+kubectl delete deploy k8s-proxy &> /dev/null
+kubectl delete service k8s-proxy &> /dev/null
+kubectl delete ingress k8s-proxy &> /dev/null
+
+cd $WORKDIR
+echo
+echo "applying k8s-proxy deployment and service..."
+cat k8s-proxy.yml | sed s,\$PWD,$(pwd), | kubectl create -f - > /dev/null
+
+pod=
+printf "\n"
+trycount=0
+while [ ! -n "$pod" ] && [ "60" -gt "$trycount" ]; do
+    sleep 1
+    pod=$(kubectl get po | grep 'k8s-proxy' | grep -i running | grep '1/1' | grep -v 'k8s-proxy-test' | awk '{print $1}')
+    printf "."
+    ((trycount+=1))
+done
+printf "\n"
+
+echo
+echo "Service:"
+echo "$(kubectl get service | egrep '(k8s-proxy)|(NAME)' | grep -v 'k8s-proxy-test')"
+echo
+echo "Deployment:"
+echo "$(kubectl get deploy | egrep '(k8s-proxy)|(NAME)' | grep -v 'k8s-proxy-test')"
+echo
+echo "Pods:"
+echo "$(kubectl get po | egrep '(k8s-proxy)|(NAME)' | grep -v Terminating | grep -v 'k8s-proxy-test')"
+echo
+
+if [ "" = "$pod" ]; then
+    echo "Timed out waiting for pod to be ready"
+    exit 0
+fi
+
+# hide the readiness/liveness probe noise...
+echo "kubectl logs -f $pod | grep -v 'probe OK'"
+echo
+kubectl logs -f $pod | grep -v 'probe OK'

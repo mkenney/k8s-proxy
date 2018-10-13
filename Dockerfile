@@ -1,5 +1,5 @@
 # Build binary
-FROM golang:1.10-alpine AS build
+FROM golang:1.11-alpine AS build
 ENV DEFAULT_SERVICE=kubernetes \
     K8S_PROXY_PORT=80 \
     K8S_PROXY_SSLPORT=443 \

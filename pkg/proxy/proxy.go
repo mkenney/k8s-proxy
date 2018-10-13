@@ -10,28 +10,36 @@ import (
 	"sync"
 	"time"
 
+	errs "github.com/bdlm/errors"
 	"github.com/bdlm/log"
+	"github.com/mkenney/k8s-proxy/internal/codes"
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
 	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"rsc.io/letsencrypt"
 )
 
 // New initializes the proxy service and returns a pointer to the service
 // instance. If an error is generated while initializing the kubernetes service
 // scanner an error will be returned.
-func New() (*Proxy, error) {
+func New(ctx context.Context) (*Proxy, error) {
 	var err error
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	proxy := &Proxy{
+		cancelContext: cancel,
 		ctx:           ctx,
-		cancelContext: cancelFunc,
 		listeners:     make(map[string]*Listener),
 		requestCh:     make(chan Request, 15),
 		services:      make(map[string]*Service),
+		svcCh:         make(chan apiv1.Service, 15),
 	}
 	proxy.api, err = k8s.New()
 	if nil != err {
-		return nil, err
+		return nil, errs.Wrap(err, 0, "could not create k8s api connection")
+	}
+	proxy.svc, err = proxy.api.Client.Services("default").Get("k8s-proxy", metav1.GetOptions{})
+	if nil != err {
+		return nil, errs.Wrap(err, 0, "could not load the k8s-proxy service")
 	}
 	return proxy, err
 }
@@ -42,22 +50,98 @@ type Proxy struct {
 	api           *k8s.K8S
 	cancelContext context.CancelFunc
 	ctx           context.Context
+	done          bool
 	port          int
+	svc           *apiv1.Service
 	tlsCert       string
 
 	requestCh chan Request
 	svcCh     chan apiv1.Service
-	stopCh    chan error
 
 	mux       sync.Mutex
 	listeners map[string]*Listener
 	services  map[string]*Service
+
+	wg sync.WaitGroup
+}
+
+// HasListener returns a bool noting whether the specified listener exists
+// in the network map.
+func (proxy *Proxy) HasListener(key string) bool {
+	proxy.mux.Lock()
+	_, ok := proxy.listeners[key]
+	proxy.mux.Unlock()
+	return ok
+
+}
+
+// AddListener adds a protocol listener to the network map.
+//
+// An error is returned if a matching Listener already exists or a new
+// Listener cannot be created.
+func (proxy *Proxy) AddListener(
+	protocol string,
+	port int32,
+) error {
+	var mapKey string
+
+	for _, proxyPort := range proxy.svc.Spec.Ports {
+		// Determine network protocol.
+		protocol := "tcp"
+		if "" != proxyPort.Protocol {
+			protocol = strings.ToLower(string(proxyPort.Protocol))
+		}
+
+		// Determine port for receiving traffic.
+		port := proxyPort.Port
+		if 0 > proxyPort.TargetPort.IntVal {
+			port = proxyPort.TargetPort.IntVal
+		}
+		if 0 > proxyPort.NodePort {
+			port = proxyPort.NodePort
+		}
+
+		// Check to see if listener exists.
+		mapKey = fmt.Sprintf("%s:%d", protocol, port)
+		proxy.mux.Lock()
+		if _, ok := proxy.listeners[mapKey]; ok {
+			proxy.mux.Unlock()
+			err := errs.New(codes.NetworkListenerExists, "network listner already exists, skipping")
+			log.Debugf("error code: %d", err.Code())
+			return err
+		}
+		proxy.mux.Unlock()
+	}
+
+	// Listener does not exist, create.
+	listener, err := NewListener(
+		proxy.ctx,
+		protocol,
+		port,
+		proxy.requestCh,
+		proxy.api.Client.Services("default"),
+	)
+	if nil != err {
+		return errs.Wrap(err, 1, "could not create new listener")
+	}
+
+	proxy.mux.Lock()
+	proxy.listeners[mapKey] = listener
+	proxy.mux.Unlock()
+
+	return nil
 }
 
 // AddService adds a service to the passthrough map.
-func (proxy *Proxy) AddService(ctx context.Context, service apiv1.Service) error {
-	if service.Name == "k8s-proxy" {
-		return fmt.Errorf("'k8s-proxy' cannot be a proxy target, skipping")
+//
+// An error is returned if the specified service is the k8s-proxy service or
+// a listener does not exist and cannot be provided.
+func (proxy *Proxy) AddService(service apiv1.Service) error {
+	if "k8s-proxy" == service.Name || "kubernetes" == service.Name {
+		return fmt.Errorf("'%s' cannot be a targeted service, skipping", service.Name)
+	}
+	if "kube-system" == service.Namespace || "docker" == service.Namespace {
+		return fmt.Errorf("'%s' is a reserved namespace, skipping", service.Namespace)
 	}
 
 	// Service dns hostname.
@@ -70,7 +154,7 @@ func (proxy *Proxy) AddService(ctx context.Context, service apiv1.Service) error
 	// service.
 	proxy.mux.Lock()
 	if _, ok := proxy.services[host]; !ok {
-		proxy.services[host] = NewService(ctx, service, proxy.api)
+		proxy.services[host] = NewService(proxy.ctx, service, proxy.api)
 	} else {
 		proxy.services[host].Refresh()
 	}
@@ -81,28 +165,50 @@ func (proxy *Proxy) AddService(ctx context.Context, service apiv1.Service) error
 		mapKey := fmt.Sprintf("%s:%d", conn.Protocol(), conn.Port())
 
 		// Make sure listeners exist for this request channel.
-		proxy.mux.Lock()
 		_, ok := proxy.listeners[mapKey]
 		if !ok {
-			proxy.listeners[mapKey] = NewListener(
-				conn.Protocol(),
-				conn.Port(),
-				proxy.requestCh,
-			)
-			proxy.listeners[mapKey].Listen(proxy.ctx)
+			err := proxy.AddListener(conn.Protocol(), conn.Port())
+			if nil != err {
+				if e, ok := err.(*errs.Err); !ok {
+					err = errs.Wrap(err, 0, "could not add listener")
+				} else if e.Code() != codes.NetworkListenerExists {
+					err = errs.Wrap(err, e.Code(), "could not add listener")
+				}
+				return err
+			}
+			proxy.mux.Lock()
+			err = proxy.listeners[mapKey].Listen()
+			proxy.mux.Unlock()
+			if nil != err {
+				if e, ok := err.(*errs.Err); !ok {
+					err = errs.Wrap(err, 0, "could not start listener")
+				} else if e.Code() != codes.NetworkListenerListening {
+					err = errs.Wrap(err, e.Code(), "could not start listener")
+				}
+				return err
+			}
 		}
-		proxy.mux.Unlock()
 	}
 
 	return nil
 }
 
-// ListenAndServe starts the traffic manager.
-func (proxy *Proxy) ListenAndServe(ctx context.Context, errCh chan error) {
-	// configure context and exit strategy
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	defer func() { errCh <- ctx.Err() }()
+// Done returns the proxy done flag.
+func (proxy *Proxy) Done() bool {
+	return proxy.done
+}
+
+// ListenAndServe starts the proxy traffic manager.
+//
+// First, a goroutine watching for kubernetes service deployment changes is
+// started which adds and removes entries from the service map stay in sync
+// with the k8s environment.
+//
+// Second, the primary request listen loop is started which watches for
+// incomming requests for all services and routes them to the correct
+// service.
+func (proxy *Proxy) ListenAndServe() {
+	log.Info("starting the proxy service...")
 
 	// update the k8s-proxy service deployment to reflect network+port requirements
 
@@ -110,31 +216,52 @@ func (proxy *Proxy) ListenAndServe(ctx context.Context, errCh chan error) {
 	// service data is available from the Kubernetes API.
 	changes := proxy.api.Services.Watch(5 * time.Second)
 	go func() {
+		log.Info("starting the change watcher...")
+		proxy.wg.Add(1)
+		ctx, cancel := context.WithCancel(proxy.ctx)
 		for {
 			select {
 			case <-ctx.Done():
+				log.Info("stopping the change watcher...")
+				cancel()
+				proxy.wg.Done()
+				return
 			case delta := <-changes:
-				proxy.UpdateServices(ctx, delta)
+				proxy.UpdateServices(delta)
 			}
 		}
 	}()
 
-	for {
-		select {
-		case <-proxy.ctx.Done():
-			return
-		case request := <-proxy.requestCh:
-			// pass the request conn to the correct service
-			log.Debug(request)
+	go func() {
+		log.Info("starting the request watcher...")
+		proxy.wg.Add(1)
+		ctx, cancel := context.WithCancel(proxy.ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info("stopping the request watcher...")
+				cancel()
+				proxy.wg.Done()
+				return
+			case request := <-proxy.requestCh:
+				err := proxy.routeRequest(request)
+				if nil != err {
+					log.WithField("error", err).Errorf("%-v", err)
+				}
+			}
 		}
-	}
+	}()
+}
+
+func (proxy *Proxy) routeRequest(request Request) error {
+	return nil
 }
 
 // RemoveService removes a service from the map.
 func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 	host := service.Name
-	if _, ok := service.Labels["k8s-proxy-hostname"]; ok {
-		host = service.Labels["k8s-proxy-hostname"]
+	if _, ok := service.Labels["k8s-proxy-host"]; ok {
+		host = service.Labels["k8s-proxy-host"]
 	}
 
 	proxy.mux.Lock()
@@ -150,17 +277,12 @@ func (proxy *Proxy) RemoveService(service apiv1.Service) error {
 	return nil
 }
 
-// Stop causes the proxy to shutdown. In a kubernetes cluster this will
-// cause the container to be restarted.
+// Stop causes the proxy to gracefully shutdown. In a kubernetes cluster
+// this will cause the container to be restarted.
 func (proxy *Proxy) Stop() {
-	proxy.mux.Lock()
-	defer proxy.mux.Unlock()
 
 	// Stop the k8s service watcher.
 	proxy.api.Services.Stop()
-
-	// Cancel the context thread for this instance.
-	proxy.cancelContext()
 
 	// Drain orphaned requests and close the channel.
 	for 0 < len(proxy.requestCh) {
@@ -173,24 +295,31 @@ func (proxy *Proxy) Stop() {
 		<-proxy.svcCh
 	}
 	close(proxy.svcCh)
+
+	// Cancel the context thread for this instance.
+	proxy.cancelContext()
+
+	proxy.done = true
+	log.Info("stopping the proxy service...")
+	proxy.wg.Wait()
+	log.Info("done.")
 }
 
 // UpdateServices processes changes to the set of available services in the
 // cluster.
-func (proxy *Proxy) UpdateServices(ctx context.Context, delta k8s.ChangeSet) {
-	ctx, cancel := context.WithCancel(ctx)
+func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
 	for _, service := range delta.Added {
-		proxy.AddService(ctx, service)
+		err := proxy.AddService(service)
+		if nil != err {
+			log.Warn(err)
+		}
 	}
 	for _, service := range delta.Removed {
-		proxy.RemoveService(service)
-	}
-	go func() {
-		select {
-		case <-proxy.ctx.Done():
-			cancel()
+		err := proxy.RemoveService(service)
+		if nil != err {
+			log.Warn(err)
 		}
-	}()
+	}
 }
 
 // faviconBytes stores the favicon.ico data.
@@ -202,7 +331,7 @@ func getFavicon() []byte {
 		var err error
 		faviconBytes, err = ioutil.ReadFile("/go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico")
 		if nil != err {
-			log.Error(err)
+			log.Errorf("%-v", err)
 		}
 	}
 	return faviconBytes
