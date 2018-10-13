@@ -1,0 +1,109 @@
+# HTTP Ingress
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+    name: k8s-proxy
+spec:
+    rules:
+    -   http:
+            paths:
+            -   path: /*
+                backend:
+                    serviceName: k8s-proxy
+                    servicePort: 80
+---
+# Service
+kind: Service
+apiVersion: v1
+metadata:
+    name: k8s-proxy
+spec:
+    selector:
+        app: k8s-proxy
+    type: LoadBalancer
+    ports:
+        -   port: 80
+            targetPort: 80
+            protocol: TCP
+            name: tcp-80
+        -   port: 443
+            targetPort: 443
+            protocol: TCP
+            name: tcp-443
+---
+# Deployment
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+    name: k8s-proxy
+    labels:
+        app: k8s-proxy
+spec:
+    replicas: 1
+    revisionHistoryLimit: 2
+    strategy:
+        rollingUpdate:
+            maxSurge: 3
+            maxUnavailable: 1
+        type: RollingUpdate
+    template:
+        metadata:
+            name: k8s-proxy
+            labels:
+                app: k8s-proxy
+        spec:
+            containers:
+                -   name: k8s-proxy
+                    image: mkenney/k8s-proxy:latest
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                        -   containerPort: 80
+                        -   containerPort: 443
+                    env:
+                        -   name: LOG_LEVEL
+                            value: debug
+                        -   name: K8S_PROXY_PORT
+                            value: "80"
+                        -   name: K8S_PROXY_SSL_CERT
+                            value: "local.dev.mkenney.us"
+                        -   name: K8S_PROXY_SSLPORT
+                            value: "443"
+                        -   name: K8S_PROXY_TIMEOUT
+                            value: "10"
+                    resources:
+                        limits:
+                            cpu: 0.5
+                            memory: 256Mi
+                        requests:
+                            cpu: 0.1
+                            memory: 128Mi
+                    #livenessProbe:
+                    #    httpGet:
+                    #        path: "/k8s-alive"
+                    #        port: 80
+                    #        scheme: HTTP
+                    #    failureThreshold: 2
+                    #    initialDelaySeconds: 2
+                    #    periodSeconds: 10
+                    #    timeoutSeconds: 5
+                    #readinessProbe:
+                    #    httpGet:
+                    #        path: "/k8s-ready"
+                    #        port: 80
+                    #        scheme: HTTP
+                    #    failureThreshold: 2
+                    #    initialDelaySeconds: 5
+                    #    periodSeconds: 10
+                    #    timeoutSeconds: 5
+                    volumeMounts:
+                        -   mountPath: /go/src/github.com/mkenney/k8s-proxy/assets
+                            name: assetpath
+                        -   mountPath: /go/bin
+                            name: binpath
+            volumes:
+                -   name: assetpath
+                    hostPath:
+                        path: $PWD/assets
+                -   name: binpath
+                    hostPath:
+                        path: $PWD/bin

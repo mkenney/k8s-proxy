@@ -1,199 +1,351 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	errs "github.com/bdlm/errors"
 	"github.com/bdlm/log"
+	"github.com/mkenney/k8s-proxy/internal/codes"
 	"github.com/mkenney/k8s-proxy/pkg/k8s"
-	"github.com/pkg/errors"
 	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"rsc.io/letsencrypt"
 )
 
-/*
-New initializes the proxy service and returns a pointer to the service
-instance. If an error is generated while initializing the kubernetes
-service scanner an error will be returned.
-*/
-func New(
-	port int,
-	sslCert string,
-	sslPort int,
-	timeout int,
-) (*Proxy, error) {
+// New initializes the proxy service and returns a pointer to the service
+// instance. If an error is generated while initializing the kubernetes service
+// scanner an error will be returned.
+func New(ctx context.Context) (*Proxy, error) {
 	var err error
+	ctx, cancel := context.WithCancel(ctx)
 	proxy := &Proxy{
-		Port:    port,
-		SSLCert: sslCert,
-		SSLPort: sslPort,
-		Timeout: timeout,
-
-		readyCh:    make(chan struct{}, 2),
-		serviceMap: make(map[string]*Service),
+		cancelContext: cancel,
+		ctx:           ctx,
+		listeners:     make(map[string]*Listener),
+		requestCh:     make(chan Request, 15),
+		services:      make(map[string]*Service),
+		svcCh:         make(chan apiv1.Service, 15),
 	}
-	proxy.K8s, err = k8s.New()
+	proxy.api, err = k8s.New()
+	if nil != err {
+		return nil, errs.Wrap(err, 0, "could not create k8s api connection")
+	}
+	proxy.svc, err = proxy.api.Client.Services("default").Get("k8s-proxy", metav1.GetOptions{})
+	if nil != err {
+		return nil, errs.Wrap(err, 0, "could not load the k8s-proxy service")
+	}
 	return proxy, err
 }
 
-/*
-Proxy holds configuration data and methods for running the kubernetes
-proxy service.
-*/
+// Proxy holds configuration data and methods for running the kubernetes proxy
+// service.
 type Proxy struct {
-	K8s     *k8s.K8S
-	Port    int
-	SSLCert string
-	SSLPort int
-	Timeout int
+	api           *k8s.K8S
+	cancelContext context.CancelFunc
+	ctx           context.Context
+	done          bool
+	port          int
+	svc           *apiv1.Service
+	tlsCert       string
 
-	ready      bool
-	readyCh    chan struct{}
-	svcMapMux  sync.Mutex
-	serviceMap map[string]*Service
+	requestCh chan Request
+	svcCh     chan apiv1.Service
+
+	mux       sync.Mutex
+	listeners map[string]*Listener
+	services  map[string]*Service
+
+	wg sync.WaitGroup
 }
 
-/*
-Service defines a k8s service proxy.
-*/
-type Service struct {
-	Name   string
-	Port   int32
-	Scheme string
-	Proxy  *ReverseProxy
+// HasListener returns a bool noting whether the specified listener exists
+// in the network map.
+func (proxy *Proxy) HasListener(key string) bool {
+	proxy.mux.Lock()
+	_, ok := proxy.listeners[key]
+	proxy.mux.Unlock()
+	return ok
+
 }
 
-/*
-AddService adds a service to the passthrough map.
-*/
-func (proxy *Proxy) AddService(service apiv1.Service) error {
-	if service.Name == "k8s-proxy" {
-		return fmt.Errorf("'k8s-proxy' cannot be a proxy target, skipping")
+// AddListener adds a protocol listener to the network map.
+//
+// An error is returned if a matching Listener already exists or a new
+// Listener cannot be created.
+func (proxy *Proxy) AddListener(
+	protocol string,
+	port int32,
+) error {
+	var mapKey string
+
+	for _, proxyPort := range proxy.svc.Spec.Ports {
+		// Determine network protocol.
+		protocol := "tcp"
+		if "" != proxyPort.Protocol {
+			protocol = strings.ToLower(string(proxyPort.Protocol))
+		}
+
+		// Determine port for receiving traffic.
+		port := proxyPort.Port
+		if 0 > proxyPort.TargetPort.IntVal {
+			port = proxyPort.TargetPort.IntVal
+		}
+		if 0 > proxyPort.NodePort {
+			port = proxyPort.NodePort
+		}
+
+		// Check to see if listener exists.
+		mapKey = fmt.Sprintf("%s:%d", protocol, port)
+		proxy.mux.Lock()
+		if _, ok := proxy.listeners[mapKey]; ok {
+			proxy.mux.Unlock()
+			err := errs.New(codes.NetworkListenerExists, "network listner already exists, skipping")
+			log.Debugf("error code: %d", err.Code())
+			return err
+		}
+		proxy.mux.Unlock()
 	}
 
-	// Service subdomain
-	domain := service.Name
-	if _, ok := service.Labels["k8s-proxy-domain"]; ok {
-		domain = service.Labels["k8s-proxy-domain"]
+	// Listener does not exist, create.
+	listener, err := NewListener(
+		proxy.ctx,
+		protocol,
+		port,
+		proxy.requestCh,
+		proxy.api.Client.Services("default"),
+	)
+	if nil != err {
+		return errs.Wrap(err, 1, "could not create new listener")
 	}
 
-	for _, servicePort := range service.Spec.Ports {
-		// Service port
-		port := servicePort.Port
-		if 0 > servicePort.TargetPort.IntVal {
-			port = service.Spec.Ports[0].TargetPort.IntVal
-		}
-		if 0 > servicePort.NodePort {
-			port = service.Spec.Ports[0].NodePort
-		}
-		if p, ok := service.Labels["k8s-proxy-port"]; ok {
-			ptmp, err := strconv.Atoi(p)
-			if nil != err {
-				log.Warn(errors.Wrap(err, fmt.Sprintf("invalid 'k8s-proxy-port' service label '%s'", p)))
-			}
-			if nil == err {
-				port = int32(ptmp)
-			}
-		}
+	proxy.mux.Lock()
+	proxy.listeners[mapKey] = listener
+	proxy.mux.Unlock()
 
-		if port >= 80 && "TCP" == servicePort.Protocol {
-			// HTTP Scheme
-			scheme := "http"
-			if 443 == servicePort.Port {
-				scheme = "https"
-			}
-			if _, ok := service.Labels["k8s-proxy-scheme"]; ok {
-				scheme = service.Labels["k8s-proxy-scheme"]
-			}
-
-			rp, err := NewReverseProxy(scheme, service, port)
-			if nil != err {
-				return err
-			}
-
-			log.WithFields(log.Fields{
-				"port":    port,
-				"service": service.Name,
-				"url":     fmt.Sprintf("%s://%s", scheme, domain),
-			}).Info("registering service")
-
-			svc := &Service{
-				Name:   service.Name,
-				Port:   port,
-				Scheme: scheme,
-				Proxy:  rp,
-			}
-			proxy.svcMapMux.Lock()
-			proxy.serviceMap[domain] = svc
-			proxy.svcMapMux.Unlock()
-
-			break
-		}
-	}
 	return nil
 }
 
-/*
-Map returns a map of the current kubernetes services.
-*/
-func (proxy *Proxy) Map() map[string]apiv1.Service {
-	return proxy.K8s.Services.Map()
-}
+// AddService adds a service to the passthrough map.
+//
+// An error is returned if the specified service is the k8s-proxy service or
+// a listener does not exist and cannot be provided.
+func (proxy *Proxy) AddService(service apiv1.Service) error {
+	if "k8s-proxy" == service.Name || "kubernetes" == service.Name {
+		return fmt.Errorf("'%s' cannot be a targeted service, skipping", service.Name)
+	}
+	if "kube-system" == service.Namespace || "docker" == service.Namespace {
+		return fmt.Errorf("'%s' is a reserved namespace, skipping", service.Namespace)
+	}
 
-/*
-getService will attempt ot match a request to the correct service.
-*/
-func (proxy *Proxy) getService(r *http.Request) (*Service, error) {
-	match := ""
-	for k := range proxy.serviceMap {
-		if r.Host == k {
-			match = k
-			break
-		} else if strings.HasPrefix(r.Host, k+".") && len(match) < len(k) {
-			match = k
+	// Service dns hostname.
+	host := service.Name
+	if _, ok := service.Labels["k8s-proxy-host"]; ok {
+		host = service.Labels["k8s-proxy-host"]
+	}
+
+	// Make sure service proxy connections exist and are up to date for this
+	// service.
+	proxy.mux.Lock()
+	if _, ok := proxy.services[host]; !ok {
+		proxy.services[host] = NewService(proxy.ctx, service, proxy.api)
+	} else {
+		proxy.services[host].Refresh()
+	}
+	proxy.mux.Unlock()
+
+	// Inspect service ports for requirements.
+	for _, conn := range proxy.services[host].Conns() {
+		mapKey := fmt.Sprintf("%s:%d", conn.Protocol(), conn.Port())
+
+		// Make sure listeners exist for this request channel.
+		_, ok := proxy.listeners[mapKey]
+		if !ok {
+			err := proxy.AddListener(conn.Protocol(), conn.Port())
+			if nil != err {
+				if e, ok := err.(*errs.Err); !ok {
+					err = errs.Wrap(err, 0, "could not add listener")
+				} else if e.Code() != codes.NetworkListenerExists {
+					err = errs.Wrap(err, e.Code(), "could not add listener")
+				}
+				return err
+			}
+			proxy.mux.Lock()
+			err = proxy.listeners[mapKey].Listen()
+			proxy.mux.Unlock()
+			if nil != err {
+				if e, ok := err.(*errs.Err); !ok {
+					err = errs.Wrap(err, 0, "could not start listener")
+				} else if e.Code() != codes.NetworkListenerListening {
+					err = errs.Wrap(err, e.Code(), "could not start listener")
+				}
+				return err
+			}
 		}
 	}
-	if "" != match {
-		return proxy.serviceMap[match], nil
-	}
-	return nil, fmt.Errorf("no service found to fulfill request '%s'", r.Host)
+
+	return nil
 }
 
-/*
-faviconBytes stores the favicon.ico data.
-*/
+// Done returns the proxy done flag.
+func (proxy *Proxy) Done() bool {
+	return proxy.done
+}
+
+// ListenAndServe starts the proxy traffic manager.
+//
+// First, a goroutine watching for kubernetes service deployment changes is
+// started which adds and removes entries from the service map stay in sync
+// with the k8s environment.
+//
+// Second, the primary request listen loop is started which watches for
+// incomming requests for all services and routes them to the correct
+// service.
+func (proxy *Proxy) ListenAndServe() {
+	log.Info("starting the proxy service...")
+
+	// update the k8s-proxy service deployment to reflect network+port requirements
+
+	// Start the change watcher and the updater. This will block until
+	// service data is available from the Kubernetes API.
+	changes := proxy.api.Services.Watch(5 * time.Second)
+	go func() {
+		log.Info("starting the change watcher...")
+		proxy.wg.Add(1)
+		ctx, cancel := context.WithCancel(proxy.ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info("stopping the change watcher...")
+				cancel()
+				proxy.wg.Done()
+				return
+			case delta := <-changes:
+				proxy.UpdateServices(delta)
+			}
+		}
+	}()
+
+	go func() {
+		log.Info("starting the request watcher...")
+		proxy.wg.Add(1)
+		ctx, cancel := context.WithCancel(proxy.ctx)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info("stopping the request watcher...")
+				cancel()
+				proxy.wg.Done()
+				return
+			case request := <-proxy.requestCh:
+				err := proxy.routeRequest(request)
+				if nil != err {
+					log.WithField("error", err).Errorf("%-v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (proxy *Proxy) routeRequest(request Request) error {
+	return nil
+}
+
+// RemoveService removes a service from the map.
+func (proxy *Proxy) RemoveService(service apiv1.Service) error {
+	host := service.Name
+	if _, ok := service.Labels["k8s-proxy-host"]; ok {
+		host = service.Labels["k8s-proxy-host"]
+	}
+
+	proxy.mux.Lock()
+	defer proxy.mux.Unlock()
+	if _, ok := proxy.services[host]; !ok {
+		return fmt.Errorf("could not remove service '%s', no match found in service map", service.Name)
+	}
+
+	log.WithFields(log.Fields{"service": service.Name, "host": host}).
+		Info("removing service")
+	delete(proxy.services, host)
+
+	return nil
+}
+
+// Stop causes the proxy to gracefully shutdown. In a kubernetes cluster
+// this will cause the container to be restarted.
+func (proxy *Proxy) Stop() {
+
+	// Stop the k8s service watcher.
+	proxy.api.Services.Stop()
+
+	// Drain orphaned requests and close the channel.
+	for 0 < len(proxy.requestCh) {
+		<-proxy.requestCh
+	}
+	close(proxy.requestCh)
+
+	// Drain orphaned service responses and close the channel.
+	for 0 < len(proxy.svcCh) {
+		<-proxy.svcCh
+	}
+	close(proxy.svcCh)
+
+	// Cancel the context thread for this instance.
+	proxy.cancelContext()
+
+	proxy.done = true
+	log.Info("stopping the proxy service...")
+	proxy.wg.Wait()
+	log.Info("done.")
+}
+
+// UpdateServices processes changes to the set of available services in the
+// cluster.
+func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
+	for _, service := range delta.Added {
+		err := proxy.AddService(service)
+		if nil != err {
+			log.Warn(err)
+		}
+	}
+	for _, service := range delta.Removed {
+		err := proxy.RemoveService(service)
+		if nil != err {
+			log.Warn(err)
+		}
+	}
+}
+
+// faviconBytes stores the favicon.ico data.
 var faviconBytes []byte
 
-/*
-getFaviconBytes returns the favicon.ico data.
-*/
-func getFaviconBytes() []byte {
+// getFavicon returns the favicon.ico data.
+func getFavicon() []byte {
 	if nil == faviconBytes || 0 == len(faviconBytes) {
 		var err error
 		faviconBytes, err = ioutil.ReadFile("/go/src/github.com/mkenney/k8s-proxy/assets/favicon.ico")
 		if nil != err {
-			log.Error(err)
+			log.Errorf("%-v", err)
 		}
 	}
 	return faviconBytes
 }
 
-/*
-Pass passes HTTP traffic through to the requested service.
-*/
+// Pass passes HTTP traffic through to the requested service.
 func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
+	var err error
 	scheme := "http"
 	if nil != r.TLS {
 		scheme = "https"
 	}
 
-	svc, err := proxy.getService(r)
+	//svc, err := proxy.getService(r)
 	if nil != err {
 		log.WithFields(log.Fields{
 			"url": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.URL),
@@ -203,7 +355,7 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 		if "/favicon.ico" == r.URL.String() {
 			w.Header().Set("Content-Type", "image/vnd.microsoft.icon")
 			w.WriteHeader(http.StatusOK)
-			w.Write(getFaviconBytes())
+			w.Write(getFavicon())
 
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
@@ -214,22 +366,21 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 			}{
 				Host:     r.Host,
 				Scheme:   strings.ToUpper(scheme),
-				Services: proxy.serviceMap,
+				Services: proxy.services,
 			})
 		}
 		return
 	}
 
-	log.WithFields(log.Fields{
-		"endpoint": svc.Proxy.URL,
-		"host":     r.Host,
-		"url":      r.URL,
-	}).Info("serving request")
+	//log.WithFields(log.Fields{
+	//	"k8s-url": svc.URL(),
+	//	"service": svc.K8s().Name,
+	//}).Info("serving request")
 
 	// Inject our own ResponseWriter to intercept the result of the
 	// proxied request.
 	proxyWriter := &ResponseWriter{make([]byte, 0), http.Header{}, 200}
-	svc.Proxy.ServeHTTP(proxyWriter, r)
+	//svc.Proxy.ServeHTTP(proxyWriter, r)
 
 	// Write headers.
 	for k, vals := range proxyWriter.Header() {
@@ -256,175 +407,12 @@ func (proxy *Proxy) Pass(w http.ResponseWriter, r *http.Request) {
 				Msg    string
 			}{
 				Reason: fmt.Sprintf("%d %s", proxyWriter.Status(), http.StatusText(proxyWriter.Status())),
-				Host:   svc.Proxy.URL,
-				Msg:    "The deployed pod(s) may be unavailable or unresponsive.",
+				//Host:   svc.Proxy.URL,
+				Msg: "The deployed pod(s) may be unavailable or unresponsive.",
 			})
 		}
 	} else {
 		w.WriteHeader(proxyWriter.Status())
 	}
 	w.Write(proxyWriter.data)
-}
-
-/*
-RemoveService removes a service from the map.
-*/
-func (proxy *Proxy) RemoveService(service apiv1.Service) error {
-	domain := service.Name
-	if _, ok := service.Labels["k8s-proxy-domain"]; ok {
-		domain = service.Labels["k8s-proxy-domain"]
-	}
-
-	if _, ok := proxy.serviceMap[domain]; !ok {
-		return fmt.Errorf("could not remove service '%s', no match found in service map", service.Name)
-	}
-
-	log.WithFields(log.Fields{
-		"service": service.Name,
-		"domain":  domain,
-	}).Info("removing service")
-	proxy.svcMapMux.Lock()
-	delete(proxy.serviceMap, domain)
-	proxy.svcMapMux.Unlock()
-
-	return nil
-}
-
-/*
-Start starts the proxy services.
-*/
-func (proxy *Proxy) Start() chan error {
-	errs := make(chan error)
-
-	// Set the global timeout.
-	http.DefaultClient.Timeout = time.Duration(proxy.Timeout) * time.Second
-
-	// Start the change watcher and the updater. This will block until
-	// service data is available from the Kubernetes API.
-	changes := proxy.K8s.Services.Watch(5 * time.Second)
-	go func() {
-		for delta := range changes {
-			proxy.UpdateServices(delta)
-		}
-	}()
-
-	// Kubernetes liveness probe handler.
-	http.HandleFunc("/k8s-alive", func(w http.ResponseWriter, r *http.Request) {
-		log.WithFields(log.Fields{
-			"url": r.URL,
-		}).Info("liveness probe OK")
-		w.Write([]byte("200 OK"))
-	})
-
-	// Kubernetes readiness probe handler.
-	http.HandleFunc("/k8s-ready", func(w http.ResponseWriter, r *http.Request) {
-		if proxy.ready {
-			log.WithFields(log.Fields{
-				"url": r.URL,
-			}).Info("readiness probe OK")
-			w.Write([]byte("OK"))
-			return
-		}
-		log.WithFields(log.Fields{
-			"url": r.URL,
-		}).Warn("503 Service Unavailable - readiness probe failed")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
-			Reason string
-			Host   string
-			Msg    string
-		}{
-			Reason: "readiness probe failed",
-			Host:   r.Host,
-			Msg:    "proxy service is not yet ready",
-		})
-	})
-
-	// Use the passthrough handler for all other routes.
-	log.WithFields(log.Fields{
-		"port": proxy.Port,
-	}).Info("starting kubernetes proxy")
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if proxy.ready {
-			proxy.Pass(w, r)
-			return
-		}
-
-		// Return a 503 if the proxy service isn't ready yet.
-		log.WithFields(log.Fields{
-			"url": r.URL,
-		}).Warn("503 Service Unavailable - Request failed, proxy not yet ready")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		HTTPErrs[http.StatusServiceUnavailable].Execute(w, struct {
-			Reason string
-			Host   string
-			Msg    string
-		}{
-			Reason: "503 Service Unavailable",
-			Host:   r.Host,
-			Msg:    "The proxy service is not yet ready.",
-		})
-	})
-
-	// Start the HTTP passthrough server.
-	go func() {
-		log.WithFields(log.Fields{
-			"port": proxy.Port,
-		}).Info("starting HTTP passthrough service")
-		errs <- http.ListenAndServe(
-			fmt.Sprintf(":%d", proxy.Port),
-			nil,
-		)
-	}()
-
-	// Start the SSL passthrough server.
-	go func() {
-		log.WithFields(log.Fields{
-			"cert": proxy.SSLCert,
-			"port": proxy.SSLPort,
-		}).Info("starting SSL passthrough service")
-		errs <- http.ListenAndServeTLS(
-			fmt.Sprintf(":%d", proxy.SSLPort),
-			"/go/src/github.com/mkenney/k8s-proxy/assets/"+proxy.SSLCert+".crt",
-			"/go/src/github.com/mkenney/k8s-proxy/assets/"+proxy.SSLCert+".key",
-			nil,
-		)
-	}()
-
-	proxy.readyCh <- struct{}{}
-	close(proxy.readyCh)
-
-	return errs
-}
-
-/*
-Stop causes the proxy to shutdown. In a kubernetes cluster this will
-cause the container to be restarted.
-*/
-func (proxy *Proxy) Stop() {
-	proxy.K8s.Services.Stop()
-}
-
-/*
-UpdateServices processes changes to the set of available services in the
-cluster.
-*/
-func (proxy *Proxy) UpdateServices(delta k8s.ChangeSet) {
-	for _, service := range delta.Added {
-		proxy.AddService(service)
-	}
-	for _, service := range delta.Removed {
-		proxy.RemoveService(service)
-	}
-}
-
-/*
-Wait will block until the k8s services are ready
-*/
-func (proxy *Proxy) Wait() {
-	if proxy.ready {
-		return
-	}
-	<-proxy.readyCh
-	proxy.ready = true
 }

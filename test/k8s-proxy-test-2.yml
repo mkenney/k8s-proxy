@@ -4,8 +4,7 @@ apiVersion: v1
 metadata:
     name: k8s-proxy-test-2
     labels:
-        k8s-proxy-domain: k8s-proxy-test-2-label
-        k8s-proxy-protocol: HTTP
+        k8s-proxy-host: k8s-proxy-test-2-label
 spec:
     selector:
         app: k8s-proxy-test-2

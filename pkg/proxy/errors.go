@@ -8,9 +8,7 @@ import (
 	"github.com/bdlm/log"
 )
 
-/*
-HTTPErrs maps HTTP error codes to HTNL error pages.
-*/
+// HTTPErrs maps HTTP error codes to HTNL error pages.
 var HTTPErrs = map[int]*template.Template{}
 
 func init() {

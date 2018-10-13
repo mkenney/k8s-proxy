@@ -1,32 +1,36 @@
 #!/bin/sh
 set -e
 
+export GO111MODULE=on
+export GOFLAGS=-mod-vendor
+
+WORKDIR=$(pwd)
 exit_code=0
 
-go get -v github.com/golang/lint/golint
-[ "0" = "$?" ] || exit 1
+#echo "go build ./..."
+#go build  ./...
+#if [ "0" != "$?" ]; then
+#    exit 10
+#fi
 
-go get -u github.com/golang/dep/cmd/dep
-[ "0" = "$?" ] || exit 2
-
-for dir in $(go list ./... | grep -v vendor); do
-    echo "golint $dir"
-    result=$(golint $dir)
-    if [ "" != "$result" ]; then
-        echo $result
-        exit_code=5
-    fi
-    if [ "0" != "$exit_code" ]; then
-        exit $exit_code
-    fi
-done
+#go get -v github.com/golang/lint/golint
+#[ "0" = "$?" ] || exit 10
+#
+#for dir in $(go list ./... | grep -v vendor); do
+#    echo "golint $dir"
+#    result=$(GO111MODULE=on golint $dir)
+#    if [ "" != "$result" ]; then
+#        echo $result
+#        exit 20
+#    fi
+#done
 
 rm -f coverage.txt
 for dir in $(go list ./... | grep -v vendor); do
-    GOCACHE=off go test -timeout 300s -coverprofile=profile.out $dir
+    go test -timeout=20s -coverprofile=profile.out $dir
     exit_code=$?
     if [ "0" != "$exit_code" ]; then
-        exit $exit_code
+        exit 30
     fi
     if [ -f profile.out ]; then
         cat profile.out >> coverage.txt

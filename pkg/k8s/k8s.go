@@ -7,17 +7,13 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-/*
-K8S defines the kubernetes API client
-*/
+// K8S defines the kubernetes API client
 type K8S struct {
 	Client   corev1.CoreV1Interface
 	Services *Services
 }
 
-/*
-New is the constructor for the K8S struct.
-*/
+// New is the constructor for the K8S struct.
 func New() (*K8S, error) {
 	// create the Kubernetes API client
 	config, err := rest.InClusterConfig()
