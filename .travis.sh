@@ -13,17 +13,17 @@ exit_code=0
 #    exit 10
 #fi
 
-go get -v github.com/golang/lint/golint
-[ "0" = "$?" ] || exit 10
-
-for dir in $(go list ./... | grep -v vendor); do
-    echo "golint $dir"
-    result=$(GO111MODULE=on golint $dir)
-    if [ "" != "$result" ]; then
-        echo $result
-        exit 20
-    fi
-done
+#go get -v github.com/golang/lint/golint
+#[ "0" = "$?" ] || exit 10
+#
+#for dir in $(go list ./... | grep -v vendor); do
+#    echo "golint $dir"
+#    result=$(GO111MODULE=on golint $dir)
+#    if [ "" != "$result" ]; then
+#        echo $result
+#        exit 20
+#    fi
+#done
 
 rm -f coverage.txt
 for dir in $(go list ./... | grep -v vendor); do
